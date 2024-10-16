@@ -1,0 +1,209 @@
+---
+title: "Identificación AR y MA Puros"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+###Exploración de ACF para Series simuladas y de datos reales
+
+```{r IID}
+T=500
+IID=rnorm(T,4,1)
+ts_IID=as.ts(IID)
+ts_IID
+plot(ts_IID)
+acf(ts_IID,lag.max = sqrt(T))
+pacf(ts_IID,lag.max =sqrt(T) )  ###La autocorrelación Parcial mide la asociación estadística en X_{k+1} y X_{1} ajustado por intervención de las observaciones X_2,...,X_k.
+```
+
+###Filtro lineal invariante Se desea simular observaciones que provienen de:
+
+$$X_t=\sum_{j=-k}^{k}a_jZ_{t-j}$$
+
+Note que hay dependencia hasta el rezago $h=2k$.
+
+```{r filtro lineal}
+k=2
+T=2000+2*k
+
+a=rnorm(2*k+1,5,1)
+Zt=rnorm(T,0,1) ##proceso IID
+Xt=rep(0,T)
+for(t in (k+1):(T-k))
+{
+  Xt[t-k]=a%*%Zt[(t-k):(t+k)]
+}  
+filtro_lin=as.ts(Xt)
+plot(filtro_lin)
+acf(filtro_lin)
+pacf(filtro_lin)
+```
+
+Tarea: Hacer lo mismo para el proceso $X_{t}=A\cos(\theta t)+B\sin(\theta t), \theta\in(-\pi,\pi)$ y $A,B$ variables aleatorias no correlacionadas con medias cero y varianzas 1.
+
+```{r Caminata Aletoria}
+T=1000
+sigma=2
+X_t=rnorm(T,0,sigma)
+S_t=as.ts(cumsum(X_t))
+plot(S_t)
+acf(S_t,lag.max = 500)
+pacf(S_t)
+```
+
+###Gráfico de autocorrelación algunas Series reales
+
+```{r Serie tasa de interés}
+r1=read.table("w-gs1yr.txt",header=T)[,4] 
+tsr1=ts(r1,start=1962+5/365.25,frequency=365.25/7)
+tsc1=diff(tsr1)
+plot(tsc1)
+acf(tsc1)
+pacf(tsc1)
+```
+
+```{r SP500}
+sp5=as.ts(scan(file="SP500.txt"))
+sp5
+plot(sp5)
+acf(sp5)
+acf(sp5^2)
+```
+
+```{r LLuvia}
+library(readxl)
+library(tidyverse)
+library(tidyquant)
+library(timetk)
+library(tsibble)
+library(feasts)
+Lluvia <- read_excel("Lluvia.xlsx", col_types = c("date", "numeric"))
+Lluvia%>% timetk::plot_time_series(Fecha, lluvia, .interactive = TRUE)
+Lluvia%>%timetk::plot_acf_diagnostics(
+       Fecha, lluvia,               # ACF & PACF
+        .lags = 60,          # 7-Days of hourly lags
+        .interactive = FALSE)
+acf(Lluvia$lluvia,lag.max = 60)
+df_tsibble_Lluvia=Lluvia
+df_tsibble_Lluvia$Fecha<-tsibble::yearmonth(Lluvia$Fecha)
+tbl_ts_lluvia=tsibble::as_tsibble(df_tsibble_Lluvia)
+tbl_ts_lluvia %>%
+  autoplot(lluvia) +
+  labs(y = "Promedio de lluvias en Colombia mensual")
+tbl_ts_lluvia %>% ACF(lluvia,lag_max =60) %>% autoplot()
+
+```
+
+Tarea: Chequear la acf y pacf de sus series, además de la serie de pasajeros data(AirPassengers), todas las series del archivo Base_Accidentes.xlsx de la carpeta base de datos, además de todas las series de la carpeta Estacionarias. Por favor importarlas, crear objetos de series de tiempo.
+
+## Identificación MA Puros
+
+En este script encontraremos la manera de identificar procesos MA puros y AR Puros. Empezamos con Ma Puros.
+
+```{r Identificación MA Puros}
+#####Identificación MA y AR puros
+####Identificación de un MA puro
+#set.seed(1)
+#y=rnorm(200,0,1)
+#plot(y,type='l')
+#x11()
+#acf(y,lag.max=sqrt(length(y)))
+#pacf(y)
+####Ejemplo MA(1)
+set.seed(12345)
+theta1=0.90
+theta2=0.5
+Tlength=200
+arimaej=arima.sim(list(order = c(0,0,1),ma=c(theta1)), n = Tlength)
+plot(arimaej,main='MA(1)')
+acf(arimaej,lag.max=50)####Bandas para probar no autocorrelación de ruido blanco
+acf(arimaej,ci.type='ma',lag.max = trunc((Tlength)/4)) ####Bandas para probar MA, note que es consecuente con un MA(1)
+pacf(arimaej)
+###Ejemplo MA(2)
+set.seed(123456)
+arimaej=arima.sim(list(order = c(0,0,2),ma=c(theta1,theta2)), n = Tlength)
+plot(arimaej,main='MA(2)')
+acf(arimaej)
+acf(arimaej,ci.type='ma')####Bandas para probar autocorrelación del tipo proceso MA
+pacf(arimaej)
+###Los órdenes Máximos que se deberían postular para un ARMA(p=4,q=2) mixto.
+
+###Simular un AR(1) phi=0.8
+arimaej=arima.sim(list(order = c(1,0,0),ar=c(0.8)), n = Tlength)
+plot(arimaej)
+acf(arimaej)
+acf(arimaej,ci.type='ma')
+pacf(arimaej)
+```
+
+
+
+## Identificación AR Puros
+
+You can also embed plots, for example:
+
+```{r ARPuros}
+######Ejemplos Autoregresivos AR(p)
+####Ejemplo AR(1)
+set.seed(123)
+phi1=0.8
+Tlength=200
+arimaar1=arima.sim(list(order = c(1,0,0),ar = c(phi1)), n = Tlength)
+plot(arimaar1,main='AR(1)')
+acf(arimaar1)
+acf(arimaar1,ci.type='ma')
+pacf(arimaar1)
+
+####Ejemplo AR(2)
+set.seed(1234)
+phi1=0.8
+phi2=-0.2
+Tlength=200
+arimaar2=arima.sim(list(order = c(2,0,0),ar = c(phi1,phi2)), n = Tlength)
+plot(arimaar2,main='AR(1)')
+acf(arimaar2)
+acf(arimaar2,ci.type="ma")
+pacf(arimaar2)
+```
+
+# Que pasa con los modelo ARMA mixtos?
+Se simula un proceso ARMA(1,2)
+
+```{r ACF ARMA mixto}
+ 
+arimaej=arima.sim(list(order=c(1,0,2),ar=c(0.8),ma=c(theta1,theta2)), n = Tlength)
+plot(arimaej)
+acf(arimaej)
+acf(arimaej,ci.type='ma')
+pacf(arimaej)
+```
+
+
+```{r Pasajeros}
+data("AirPassengers")
+plot(AirPassengers)
+log_airpass=log(AirPassengers)
+plot(log_airpass)
+diff_log_airpass=diff(log_airpass)
+plot(diff_log_airpass)
+spectrum(diff_log_airpass,log="no")
+spectrum(diff_log_airpass,kernel("modified.daniell", c(1,1)))
+monthplot(diff_log_airpass)
+###Eliminamos la estacionalidad
+diff_log_airpass_est=diff(diff_log_airpass,lag = 12)
+monthplot(diff_log_airpass_est)
+spectrum(diff_log_airpass_est,log="no")
+spectrum(diff_log_airpass_est,kernel("modified.daniell", c(1,1)))
+plot(diff_log_airpass_est)
+###Identificar 
+acf(diff_log_airpass_est,lag.max = 60)
+
+acf(diff_log_airpass_est,lag.max = 60,ci.type='ma')
+pacf(diff_log_airpass_est,lag.max = 60)
+
+```
+
+

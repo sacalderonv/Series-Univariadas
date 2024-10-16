@@ -1,0 +1,669 @@
+---
+title: "Ejemplo Completo de Descriptiva y Modelamiento mediante ETS"
+format: html
+editor: visual
+---
+
+## Ejemplo Descriptiva Pasajeros y Modelos ETS
+
+Vamos a llevara a cabo un ejemplo con los pasos de la estadística descriptiva en series de tiempo para la serie de pasajeros y un primer modelamiento desde suavizamiento exponencial.
+
+## Visualización de la Serie de Tiempo
+
+Vamos primero a visualizar la serie de tiempo de pasajeros.
+
+```{r visual pasajeros}
+data("AirPassengers")
+plot(AirPassengers)
+```
+
+Recuerden que la serie presenta:
+
+-   **Heterocedasticidad Marginal:** *ya que visualmente el rango de valores que va tomando la variable se va haciendo cada vez mayor. Se debe estabilizar vía transformación Box-Cox.*
+
+-   **Tendencia:** *La serie es creciente con el tiempo aparentemente de forma lineal. Se puede estimar la tendencia(determinística lineal) y despúes eliminar la tendencia. También se puede eliminar la tendencia mediante diferencia ordinaria y posterior*
+
+-   **Componente estacional:** *Hay claridad de la existencia de una componente estacional de periodo s=12. Debido a que la serie es mensual y usualmente de haber esta componente, ella es de periodo s=12 , sin embargo vamos a proceder a identificarla usando las herramientas, basadas en una serie sin tendencia.*
+
+Primero procedemos a estabilizar la varianza.
+
+```{r estabilización de la varianza}
+class(AirPassengers) ###Clase del objeto.
+
+library(forecast)
+library(MASS)
+forecast::BoxCox.lambda(AirPassengers, method ="loglik", lower = -1, upper = 3)
+##Recordar que la funcion nos entrega el valor de lambda
+
+MASS::boxcox(lm(AirPassengers ~ 1),seq(-2, 3, length = 50))  ##Coincide con el anterior valor de lambda.
+plot(BoxCox(AirPassengers,lambda = 0.2))
+lAirPass<-log(AirPassengers)
+plot(lAirPass)
+
+MASS::boxcox(lm(lAirPass ~ 1),seq(-5, 5, length = 50))  ##Coincide con el anterior
+forecast::BoxCox.lambda(lAirPass, method ="loglik", lower = -5, upper = 5)
+
+```
+
+Note que el valor de $\lambda$ para estabilizar la varianza es 0.2, el cual está cerca de 0, axemás note que el IC para $\lambda$ no captura el 1. Por lo tanto usaremos $\lambda=0$, es decir, transformación logarítmica. Note que después de la transformación logarítmica volvemos a evaluar el IC para $\lambda$ ahora para la serie transformada, y podemos ver que ahora es mas grande pero captura el 1, con lo cual la transformación logarítmica parece haber estabilizado la varianza.
+
+**Tarea: Pruebe la transformación Box-Cox para** \$\$\\lambda=0.2\$
+
+Note que otro tipo de transformación similar a al de Box-Cox es la de Yeo Jhonson.
+
+```{r Yeo-Jhonson}
+library(VGAM)
+library(car)
+
+
+VGAM::yeo.johnson(AirPassengers, lambda = 0)
+car::yjPower(AirPassengers,lambda=0)
+```
+
+# Tendencia(estimación y/o eliminación)
+
+Segundo procederemos a estimar la tendencia de forma preliminar. Iniciamos con una tendencia lineal determinística.
+
+```{r Estimacion de la tendencia}
+
+summary(fit_pasajero <- lm(lAirPass~time(lAirPass), na.action=NULL))
+plot(lAirPass, ylab="Número de Pasajeros en escala logarítmica") 
+abline(fit_pasajero,col = "red") # Se añade la recta ajusta
+###Eliminamos la tendencia con la predicción la recta
+NoTendlAirPass=lAirPass-predict(fit_pasajero)
+plot(NoTendlAirPass,main="Serie Log Pasajeros Sin tendencia")
+acf(lAirPass,lag.max = length(lAirPass))
+acf(NoTendlAirPass,lag.max =length(NoTendlAirPass) )
+```
+
+Note que la serie, obtenida después de haber eliminado la tendencia lineal manifiesta hay un lento de su acf, en especial en rezagos múltiplos de 12. Esto podría sugerir la presencia de una componente estacional.
+
+Veamos ahora la estimación de la tendencia desde filtro de promedio móviles y mediante STL. Recuerde que no hemos identificado la componente estacional, por lo tanto, lo obtenido descomposición de filtro de promedio móviles es una estimación preliminar.
+
+**Atención: Note que el objeto lAirPass tiene asociada una frecuencia al ser un objeto ts, y algunos paquetes sobrentienden que esa frecuencia está asociada con la presencia de un ciclo estacional con esa frecuencia.**
+
+```{r Promedio movil}
+descomposicion_lAirPass=decompose(lAirPass)
+plot(descomposicion_lAirPass)
+
+```
+
+Note que por filtro de promedio móvil, la tendencia estimada es aproximadamente lineal. La componente estacional parece haberse estimada de forma idónea. Sin embargo, la componente residual presenta aún patrones estacionales.
+
+Ahora procedamos a estimar la tenencia desde STL.
+
+```{r STL}
+library(tidyverse)
+library(lubridate)
+library(timetk)
+library(tibble)
+library(zoo)
+library(tsibble)
+
+
+indice_logpasajeros=as.Date(as.yearmon(tk_index(lAirPass)))
+indice_logpasajeros1=yearmonth(as.yearmon(tk_index(lAirPass)))
+## Otra forma de extraer el indice estimetk::tk_index(lAirPass)
+df_logpasajeros=data.frame(Fecha=indice_logpasajeros,Logpasa=as.matrix(lAirPass))
+df_pasajeros=data.frame(Fecha=indice_logpasajeros,pasajeros=as.matrix(AirPassengers))
+str(df_logpasajeros)
+tibble_logpasajeros=tibble(df_logpasajeros)
+
+
+
+tsibble_pasajeros=as_tsibble(df_pasajeros)
+#duplicates(tibble_logpasajeros, key = NULL, index=Fecha)   ##Mirar si hay registros duplicados
+####Primera aproximación del ajuste STL
+
+tibble_logpasajeros%>%timetk::plot_time_series(Fecha, Logpasa, 
+                   .interactive = TRUE,
+                   .plotly_slider = TRUE)
+
+#####Ajuste STL
+#Note que obtenemos un objeto adicional en tibble_logpasajeros con Logpasa_ajus con parámetros que se pueden mover.
+tibble_logpasajeros%>%mutate(Logpasa_ajus=smooth_vec(Logpasa,span = 0.75, degree = 2))
+
+
+###Ajuste STL moviendo los parámetros
+tibble_logpasajeros%>%mutate(Logpasa_ajus=smooth_vec(Logpasa,span = 0.9, degree = 2))%>%
+  ggplot(aes(Fecha, Logpasa)) +
+    geom_line() +
+    geom_line(aes(y = Logpasa_ajus), color = "red")
+
+
+```
+
+Usted puede usar el objeto $tibble\_logpasajeros\$Logpasa$ para eliminar la tendencia obtenida de STL. Recuerde que puede hacer un procedimiento similar a STL para obtener una estimación de la componente de tendencia y estacional de forma automática sin controlar los parámetros de la tendencia. Note que los parámetros para estimar la tendencia y la componente estacional son distintos ahora que se usa la función STL.
+
+```{r STL trend y estacional}
+library(feasts)
+library(fable)
+library(tsibble)
+
+tsibble_lAirPass<-as_tsibble(lAirPass)
+str(tsibble_lAirPass)
+
+tsibble_lAirPass %>%
+  model(
+    STL(value ~ trend() +
+                   season(window = "periodic"),
+    robust = TRUE)) %>%
+  components() %>%
+  autoplot()
+```
+
+**Nota: Usted puede ahora consultar mas detalles en** <https://otexts.com/fpp3/stl.html>.
+
+Veamos ahora la serie de los pasajeros en escala logarítmica después de la diferenciación ordinaria para eliminar la tendencia.
+
+```{r diferencia ordinaria}
+###Usando objeto tsibble
+tsibble_lAirPass|>mutate(diff_lAirPass=tsibble::difference(value,lag=1,differences = 1))|>
+  autoplot(.vars =diff_lAirPass ) + labs(subtitle = "Cambios en escala logarítmica de los pasajeros")
+
+tsibble_lAirPass<-tsibble_lAirPass|>mutate(diff_lAirPass=tsibble::difference(value,lag=1,differences = 1))
+
+###Diferenciando basado en el objeto tibble
+tibble_logpasajeros%>%mutate(diff_Logpasa=Logpasa-lag(Logpasa))%>%plot_time_series(Fecha,diff_Logpasa)
+
+tibble_logpasajeros<-tibble_logpasajeros%>%mutate(diff_Logpasa=Logpasa-lag(Logpasa))
+###Diferenciando con base en el objeto ts
+
+dlAirPass<-diff(lAirPass)
+plot(dlAirPass)
+
+
+
+```
+
+Note que todos los objetos dejan NA cuando se usa aplica la diferenciación excepto cuando el objeto es ts.
+
+**Explorando Relaciones no-lineales**
+
+Se pueden usar las gráficos de dispersión de retardos para explorar relaciones no-lineales, tal como se hace en regresión. Sin embargo, es importante detallar que estas relaciones deben explorarse en un contexto de una serie sin tendencia.
+
+```{r Relaciones no-lineales dispersion}
+library(astsa)
+par(mar = c(3,2,3,2))
+astsa::lag1.plot(dlAirPass, 12,corr=T) 
+
+```
+
+```{r acf}
+acf(dlAirPass, 48, main="Serie diferenciada y con logaritmo de pasajeros")
+pacf(dlAirPass, 48)
+```
+
+**Índice AMI** De los libros H. Kantz and T. Schreiber: Nonlinear Time series Analysis (Cambridge university press) H. Abarbanel: Analysis of observed chaotic data (Springer, 1996) y NONLINEAR TIME SERIES ANALYSIS HOLGER KANTZ AND THOMAS SCHREIBER. Cambrige University Press 2003.
+
+Ahora utilizaremos los paquetes nonlinearTseries y tseriesChaos para computar el average mutual information(AMI) o La información mutua promedio (AMI, la cual mide cuánto nos dice una variable aleatoria sobre otra, el cual se define como:
+
+$$
+I(X;Y)=\sum_{i}\sum_{j}p(x_i,y_j)\log_2(\frac{p(x_i,y_j)}{p(x_i)p(y_j)}).
+$$
+
+En el contexto del análisis de series de tiempo, AMI ayuda a cuantificar la cantidad de conocimiento obtenido sobre el valor de $X_{t+d}$ al observar $X_t$. Equivalentemente, el AMI es una medida de qué tanto el conocimiento de $X$ reduce la incertidumbre acerca de $Y$. Esto implica que $I(X,Y)=0$ si y sólo si $X$ y $Y$ son variables aletorias independientes. I(X; Y ) describe la información que la medición $X_t$ en el tiempo $t$ aporta a la medición X\_{t+d}\$\$ en el tiempo $t + d$. Si se elige d como el valor alrededor del primer mínimo del AMI, entonces $Y{t}$ e $Y_{t+d}$ son parcialmente pero no totalmente independientes.
+
+Vamos a simular una serie de la forma $$x_t=\frac{x_{t-1}}{x_{t-12}^2+1}+\epsilon_t$$ y a trabajar con la serie de linces Candienses del paquete astsa lynx.
+
+```{r AMI}
+library(nonlinearTseries)
+library(tseriesChaos)
+et=rnorm(1100,0,1)
+xt=rep(0,1100)
+for(t in 13:1100)
+  {
+  xt[t]=(xt[t-1]-1)/(xt[t-12]^2+1)+et[t]
+  }
+xtsimul=as.ts(xt[101:1100])
+length(xtsimul)
+plot(xtsimul)
+acf(xtsimul)
+par(mar = c(3,2,3,2))
+astsa::lag1.plot(xtsimul, 12,corr = F) 
+nonlinearTseries::mutualInformation(xtsimul,lag.max = 100,n.partitions = 50,units = "Bits",do.plot = TRUE) #c("Nats", "Bits", "Bans")
+pacf(xtsimul)
+
+tseriesChaos::mutual(xtsimul, partitions = 50, lag.max = 100, plot=TRUE)
+
+```
+
+**Tarea: Aplicar AMi a los datos de la serie diferenciada.**
+
+# Detección de la estacionalidad
+
+Recordemos que la idea de la detección de la estacionalidad consiste en ver si en ciertos periodos de tiempo las medias en esos periodos son distintos, adicionalmente hay que encontrar el periodo del ciclo estacional(**s**), es decir cuantos periodos de tiempo pasan hasta ver que la media sea análoga.
+
+Iniciaremos con la la gráfica de subseries de la serie sin tendencia.
+
+```{r explorando estacionalidad subseries}
+###Dado que la serie es mensual, monthplot permite hacer los gráficos de las subseries.
+monthplot(dlAirPass) ##Note hay meses muchas subseries están centradas alrededor de valores diferentes usando el objeto ts
+
+tsibble_lAirPass%>%na.omit()|>gg_subseries(diff_lAirPass,period=12) ##Gráfico de subseries usando el objeto tibble
+
+tibble_logpasajeros %>%na.omit()|>
+    mutate(
+        Mes = str_c("", as.character(lubridate::month(Fecha,label=TRUE)))
+    ) %>%
+    plot_time_series(
+        .date_var = Fecha,
+        .value = diff_Logpasa,
+        .facet_vars = Mes,
+        .facet_ncol = 4, 
+        .color_var = Mes, 
+        .facet_scales = "fixed",
+        .interactive = FALSE,
+        .legend_show = FALSE,
+        .smooth = FALSE
+    )
+library(forecast)
+ggseasonplot(dlAirPass)
+
+```
+
+Explorando la estacionalidad con gráficos de cajas
+
+```{r gráfico de cajas}
+##Basado en el objeto tibble
+tibble_logpasajeros%>%na.omit()%>%plot_seasonal_diagnostics(.date_var = Fecha,.value = diff_Logpasa,.feature_set = c("month.lbl"),.geom="boxplot")
+
+ggplot(tibble_logpasajeros %>%na.omit()|>
+    mutate(
+        Mes = str_c("Mes ", as.character(lubridate::month(Fecha)))
+    ), aes(x = diff_Logpasa)) +
+      geom_density(aes(fill = Mes)) +
+      ggtitle("LosPass - Estimación de la densidad vía Kernel por mes") +
+      facet_grid(rows = vars(as.factor(Mes)))
+
+
+
+```
+
+# Periodograma
+
+```{r periodograma}
+spectrum(as.numeric(dlAirPass),log='no')
+
+PeriodgramadlAirPass=spectrum(as.numeric(dlAirPass),log='no')
+ubicacionlogAir=which.max(PeriodgramadlAirPass$spec)
+sprintf("El valor de la frecuencia donde se máximiza el periodograma para la serie es: %s",PeriodgramadlAirPass$freq[ubicacionlogAir])
+
+sprintf("El periodo correspondiente es aproximadamente: %s",1/PeriodgramadlAirPass$freq[ubicacionlogAir])
+```
+
+Note que e periodo es 6, sin embargo 6 no es periodo principal para este caso, sería 12 ya que 6 es un múltiplo racional de 12.
+
+**Nota: En ningún momento se ha aplicado aplicado una prueba estadística para la detección de estacionalidad, pero usted puede consultar en** <https://www.degruyter.com/document/doi/10.1515/jem-2020-0020/html> para detallar pruebas acerca de estacionalidasd del tipo determinística. Tambien puede consultar prueba de estacionalidad estocástica en <https://cran.r-project.org/web/packages/uroot/uroot.pdf>
+
+### Modelamiento de la estacionalidad
+
+```{r ajuste de la estacionalidad con componentes Fourier y Dummy}
+
+library(tidyverse)
+library(tsibble)
+library(fable)
+library(fabletools)
+library(TSA)
+tsibble_Airpass=as_tsibble(AirPassengers)
+###Variables Dummy y Armónicos
+forecast::seasonaldummy(AirPassengers)
+Armonicos=TSA::harmonic(AirPassengers, m = 1)
+
+
+###Armónicos
+forecast::fourier(AirPassengers,K=1)
+tiempo=1
+j=1
+sin(2*pi*tiempo*j/12)
+cos(2*pi*tiempo*j/12)
+
+###Gráfica de los armónicos
+harmonics = fourier(AirPassengers, K = 6)
+harmonics
+par(mar = c(1,4,1,1), mfrow = c(6,2))
+for(i in 1:ncol(harmonics)){
+  plot(harmonics[,i], type = 'l', xlab = "Time", ylab = colnames(harmonics)[i])
+}
+par(mar = rep(4, 4), mfrow=c(1,1))
+
+diff_tsibble<-tsibble_Airpass|>mutate(logdiff_air=difference(log(value)))|>select(logdiff_air)
+###Explore diferentes valores de K
+Modelo_serie_diff<-diff_tsibble|>model(
+  `Fourier1Airdiff`=ARIMA(logdiff_air~fourier(K=2)+pdq(0, 0, 0) + PDQ(0, 0, 0))
+  
+)
+
+real_ajustado1<-diff_tsibble%>%left_join(fitted(Modelo_serie_diff,by=index))%>%select(-.model) 
+
+real_ajustado1 %>%
+  autoplot() +
+  geom_line(data=real_ajustado1,aes(y=logdiff_air,colour="real"))+
+  geom_line(data=real_ajustado1,aes(y=.fitted,colour="ajustado"))+
+  scale_color_manual(name = "real/ajustado", values = c("real" = "black", "ajustado" = "red"))
+
+#####Ajuste Dummy
+
+Modelo_serie_diff_Dummy<-diff_tsibble|>model(
+  `DummyAirdiff`=ARIMA(logdiff_air~season()+pdq(0, 0, 0) + PDQ(0, 0, 0))
+  
+)
+
+Modelo_serie_diff_Dummy<-diff_tsibble%>%left_join(fitted(Modelo_serie_diff,by=index))%>%select(-.model) 
+
+Modelo_serie_diff_Dummy %>%
+  autoplot() +
+  geom_line(data=Modelo_serie_diff_Dummy,aes(y=logdiff_air,colour="real"))+
+  geom_line(data=Modelo_serie_diff_Dummy,aes(y=.fitted,colour="ajustado"))+
+  scale_color_manual(name = "real/ajustado", values = c("real" = "black", "ajustado" = "red"))
+#### Varios modelos la mismo tiempo
+
+ajuste_final_models<-diff_tsibble%>%model(
+ `Fourier1Airdiff`=ARIMA(logdiff_air~fourier(K=1)+pdq(0, 0, 0) + PDQ(0, 0, 0)),
+ `Fourier2Airdiff`=ARIMA(logdiff_air~fourier(K=2)+pdq(0, 0, 0) + PDQ(0, 0, 0)),
+ `Fourier3Airdiff`=ARIMA(logdiff_air~fourier(K=3)+pdq(0, 0, 0) + PDQ(0, 0, 0)),
+`DummyAirdiff`=ARIMA(logdiff_air~season()+pdq(0, 0, 0) + PDQ(0, 0, 0))
+                                        )
+
+glance(ajuste_final_models)
+
+ajuste_final_models %>%
+     select(Fourier1Airdiff)%>%coef()
+
+Modelo_serie_diff_models<-diff_tsibble%>%left_join(fitted(ajuste_final_models)|>group_by(.model)%>%
+    pivot_wider(names_from = .model, values_from = .fitted))
+
+
+
+Modelo_serie_diff_models %>%
+  autoplot() +
+  geom_line(data=Modelo_serie_diff_models,aes(y=logdiff_air,colour="real"))+
+  geom_line(data=Modelo_serie_diff_models,aes(y=Fourier1Airdiff,colour="ajustadoFourier1"))+
+geom_line(data=Modelo_serie_diff_models,aes(y=Fourier2Airdiff,colour="ajustadoFourier2"))+ 
+  geom_line(data=Modelo_serie_diff_models,aes(y=Fourier3Airdiff,colour="ajustadoFourier3"))+
+  geom_line(data=Modelo_serie_diff_models,aes(y=DummyAirdiff,colour="ajustadoDummy")) +
+  scale_color_manual(name = "real/ajustado", values = c("real" = "black", "ajustadoFourier1" = "red","ajustadoFourier2" = "blue","ajustadoFourier3"="green","ajustadoDummy"="yellow"))
+
+
+```
+
+# Explorando múltiples estacionalidades
+
+Pueden haber múltiples estacionalidades(por lo general ocurren en series de alta frecuencia: diaria, cada hora, cada media y asi sucesivamente.) o una única estacionalidad, o inclusive cíclos que no se ven con facilidad.
+
+Vamos a trabajar la base datos relacionada con el sistema nacional de transmisión de electricidad del Reino Unido. Más específicamente con la demanda de energía de forma horaria.
+
+```{r mas acerca de estacionalidad}
+library(UKgrid)
+require(TSstudio)
+require(timetk)
+require(feasts)
+require(tsibble)
+require(plotly)
+UKgrid_xts <- extract_grid(type = "xts",
+                              columns = "ND",
+                              aggregate = "hourly",
+                              na.rm = TRUE)
+#extract_grid solo funciona para el conjunto de datos UKgrid
+ts_plot(UKgrid_xts,
+            title = "National Hourly Demand UK Grid",
+            Ytitle = "Megawatts",
+            Xtitle = "Year",
+            Xgrid = TRUE,
+            Ygrid = TRUE)
+
+UKgrid_tstbl <- extract_grid(type = "tsibble",
+                              columns = "ND",
+                              aggregate = "hourly",
+                              na.rm = TRUE)
+
+UKgrid_tbl <-extract_grid(type = "tbl",
+                              columns = "ND",
+                              aggregate = "hourly",
+                              na.rm = TRUE)
+
+
+```
+
+Como indicamos anteriormente, la primera indicación de la posible existencia de múltiples patrones estacionales en la serie es una frecuencia alta, como por diaria, horaria y en minutos. En esos casos, hay más de una forma de establecer la frecuencia de la serie. Por ejemplo, si capturamos una serie de tiempo de frecuencia diaria, la frecuencia de la serie se puede configurar de la siguiente manera:
+
+-   Diariamente (o 365), asumiendo que el ciclo más apropiado es un año completo.
+
+-   Días de semana (o 7) siempre que la oscilación del día de la semana sea más dominante que la del ciclo de año completo.
+
+Al utilizar estadísticas descriptivas con este tipo de series, tendrá sentido aplicar este método para cada frecuencia potencial de la serie (o al menos las principales) con el fin de examinar si existe una indicación del patrón estacional.
+
+Por ejemplo, UKgrid es una serie de tiempo por horas, que la marca automáticamente como sospechosa de tener múltiples patrones estacionales. Potencialmente, como se mencionó anteriormente, la demanda horaria de electricidad podría tener tres patrones estacionales diferentes:
+
+-   Horaria: Este es probablemente el principal patrón estacional de la serie, ya que existe una relación directa entre la demanda de energía eléctrica y la hora del día (hay alta demanda durante el día y baja demanda durante la noche o al contrario).
+-   Día de la semana: La demanda de electricidad a lo largo del día se deriva, potencialmente, del día de la semana. Tendría sentido esperar un alto consumo durante los días laborables y una menor tasa de consumo durante el fin de semana.
+-   Mensual: como los patrones climáticos varían a lo largo del año, la cantidad de luz del día y otros factores estacionales podrían afectar la demanda de electricidad.
+
+Usando el paquete **lubridate** crearemos las características.
+
+```{r multiples patrones estacionales_1}
+library(xts)
+UKgrid_df <- data.frame(time = zoo::index(UKgrid_xts), UKgrid=as.numeric(UKgrid_xts))
+str(UKgrid_df)
+```
+
+Ahora crearemos características estacionales basados en los periodos que deseamos explorar, por ejemplo hora del día,o día de la semana, o mes del año.
+
+```{r creando patrones}
+library(lubridate)
+UKgrid_df$hour <- hour(UKgrid_df$time)
+UKgrid_df$weekday <- wday(UKgrid_df$time, label = TRUE, abbr = TRUE)
+UKgrid_df$month <- factor(month.abb[month(UKgrid_df$time)], levels =   month.abb)
+head(UKgrid_df)
+```
+
+Vamos a empezar las exploraciones analizando el ciclo horario.
+
+```{r horario UKgrid}
+UKgrid_hourly <- UKgrid_df %>%
+    dplyr::group_by(hour) %>%
+    dplyr::summarise(mean = mean(UKgrid, na.rm = TRUE), sd = sd(UKgrid, na.rm
+= TRUE))
+str(UKgrid_hourly)
+UKgrid_hourly
+```
+
+Vamos ahora a hacer la gráfica de la media y la desviación estándar con base en las horas. Note que esas gráficas en escalas diferentes, así que hay que usar un gráfico especial.
+
+```{r horario UKgrid_1}
+require(plotly)
+ plot_ly(UKgrid_hourly) %>%
+      add_lines(x = ~ hour, y = ~ mean, name = "Media") %>%
+      add_lines(x = ~ hour, y = ~ sd, name = "Desviación Estándar", yaxis =
+   "y2",
+                line = list(color = "red", dash = "dash", width = 3)) %>%
+      layout(
+        title = "La demanda nacional de electricidad - Promedio horario vs. Desviación Estándar",
+        yaxis = list(title = "Media"),
+        yaxis2 = list(overlaying = "y",
+                      side = "right",
+                      title = "Desviación Estándar"
+        ),
+        xaxis = list(title="Hora del Día"),
+        legend = list(x = 0.05, y = 0.9),
+        margin = list(l = 50, r = 50)
+)
+```
+
+Qué podemos destacar del gráfico y de las estadísticas descriptivas?
+
+-   Hay poca demanda durante la noche (entre la medianoche y las 6 a.m.) y una alta demanda entre las horas de la mañana y la tarde.
+
+-   Existe una fuerte correlación entre la demanda promedio y su desviación estándar.
+
+-   La relativamente baja desviación estándar de la demanda promedio durante la noche podría indicar que existe un fuerte efecto subestacional durante esas horas además de la estacionalidad horaria. Esto debería tener sentido, ya que son horas de sueño normales y, por lo tanto, en promedio, la demanda es razonablemente la misma durante los días de semana.
+
+-   Por otro lado, la alta desviación estándar a lo largo de las horas de alta demanda podría indicar que la demanda se distribuye de manera diferente en diferentes vistas de periodicidad (como día de la semana o mes del año).
+
+Vamos a explorar el último punto, viendo la demanda a la madrugada(3 a.m) y empezando el día(9 a.m) con respecto al día de la semana.
+
+```{r exploracion_1}
+ UKgrid_weekday <- UKgrid_df %>%
+      dplyr::filter(hour == 3 | hour == 9) %>%
+    dplyr::group_by(hour, weekday) %>%
+    dplyr::summarise(mean = mean(UKgrid, na.rm = TRUE),
+                     sd = sd(UKgrid, na.rm = TRUE))
+
+UKgrid_weekday$hour <- factor(UKgrid_weekday$hour)
+    plot_ly(data = UKgrid_weekday, x = ~ weekday, y = ~ mean, type =
+   "bar",color = ~ hour) %>%
+      layout(title = "The Hourly Average Demand by Weekday",
+             yaxis = list(title = "Mean", range = c(30000, 75000)),
+             xaxis = list(title = "Weekday"))
+```
+
+En el gráfico de barras anterior podemos ver que la demanda de electricidad a las 3 a.m. es relativamente estable durante todos los días de la semana, con una ligera diferencia entre el promedio durante los días laborables y los días del fin de semana (alrededor de un 2% diferente). Por otro lado, existe una diferencia entre la demanda del día laborable y el fin de semana a las 9 a.m. (es decir, la demanda del lunes es en promedio un 28% superior a la del domingo). Como era de esperar, esos resultados se alinearon con nuestras expectativas anteriores.
+
+Ahora podemos aprovechar esos conocimientos para examinar si existe un patrón estacional mensual en la serie. Ahora seleccionaremos las mismas horas (3 a.m. y 9 a.m.); sin embargo, esta vez agruparemos estos datos por mes (en lugar de días laborables):
+
+```{r exploracion_2}
+
+ UKgrid_month <- UKgrid_df %>%
+      dplyr::filter(hour == 3 | hour == 9) %>%
+    dplyr::group_by(hour, month) %>%
+    dplyr::summarise(mean = mean(UKgrid, na.rm = TRUE),
+                     sd = sd(UKgrid, na.rm = TRUE))
+UKgrid_month$hour <- factor(UKgrid_month$hour)
+    plot_ly(data = UKgrid_month, x = ~ month, y = ~ mean, type = "bar",color =
+   ~ hour) %>%
+      layout(title = "The Hourly Average Demand by Month",
+             yaxis = list(title = "Mean", range = c(30000, 75000)),
+             xaxis = list(title = "Month"))
+```
+
+Podemos ver en el gráfico de barras del resumen de agregación mensual que, en promedio, la demanda durante la noche (3 a.m.) y la mañana (9 a.m.) varía a lo largo de los meses del año. Además, hay un cambio significativo en la demanda durante la noche en comparación con la agregación entre semana. La variación de la serie de mes a mes indica la existencia de estacionalidad mensual en la serie.
+
+Gráficos de densidades
+
+```{r exploracion_3}
+
+ UKgrid_df$hour<-as.factor(UKgrid_df$hour)
+ ggplot(UKgrid_df,aes(x=UKgrid))+
+   geom_density(aes(fill=hour))+
+   ggtitle("UKgrid-Desidades Kernel estimador para cada hora")+
+   facet_grid(rows=vars(as.factor(hour)))
+```
+
+```{r exploracion_4}
+
+ UKgrid_df$weekday<-as.factor(UKgrid_df$weekday)
+ 
+ # Se está tomando la hora cero
+ UKgrid_df%>%dplyr::filter(hour==0)%>%
+ ggplot(aes(x=UKgrid))+
+   geom_density(aes(fill=as.factor(weekday)))+
+   ggtitle("UKgrid-Desidades Kernel estimadas por hora del día")+
+   facet_grid(rows=vars(as.factor(weekday)))
+ 
+ # Se está tomando la hora 9 a.m
+ UKgrid_df%>%dplyr::filter(hour==9)%>%
+ ggplot(aes(x=UKgrid))+
+   geom_density(aes(fill=as.factor(weekday)))+
+   ggtitle("UKgrid-Desidades Kernel estimadas por hora del día")+
+   facet_grid(rows=vars(as.factor(weekday)))
+ 
+ # Se está tomando la hora 9 a.m
+ UKgrid_df%>%dplyr::filter(hour==17)%>%
+ ggplot(aes(x=UKgrid))+
+   geom_density(aes(fill=as.factor(weekday)))+
+   ggtitle("UKgrid-Desidades Kernel estimadas por hora del día")+
+   facet_grid(rows=vars(as.factor(weekday)))
+```
+
+```{r exploracion_5}
+ts_quantile(UKgrid,period="weekdays",n=2)
+
+ts_quantile(UKgrid,period="monthly",n=2)
+```
+
+**Nota:** Un detalle importante acá es que hay tres tipos de estacionalidad, la horaria, es decir depende de la hora del día en que se esté, el promedio puede diferir. El día de la semana también influye a que el promedio horario pueda cambiar. El mes de año parece también que el promedio horario varíe. Finalmente, Parece haber un cambio anual(que cambia con el mes).
+
+Si se deseara incluir coeficientes de Fourier acá para explicar la estacionalidad, se debería considerar periodos de 365.25\*24/n horas al año, 7\*24 horas a la semana, 30.5\*24 para el efecto mensual. Note que el efecto mensual puede ser pensado mejor como un efecto anual que varía en cada mes.
+
+De otra manera, usted puede pensar en variables de tipo dummy como un factor que puedan explicar la variación media por la hora del día, del día de la semana y del mes de la semana.
+
+**Tarea:** Usted deberá eliminar la tendencia de la serie sin diferenciarla y explorar las estacionalidades sin tendencia. Qué puede usted observar?
+
+```{r elminación de la tendencia}
+UKgrid_tbl_todas<-as_tibble(UKgrid_df)
+UKgrid_tbl_todas<-UKgrid_tbl_todas%>%mutate(UKgrid_trend=smooth_vec(UKgrid,span = 0.75, degree = 2))
+
+UKgrid_tbl_todas%>%ggplot(aes(time, UKgrid)) +
+    geom_line() +
+    geom_line(aes(y = UKgrid_trend), color = "red")
+UKgrid_tbl_todas<-UKgrid_tbl_todas%>%mutate(UKgrid_no_trend=UKgrid-UKgrid_trend)
+
+colnames(UKgrid_tbl_todas)
+UKgrid_tbl_todas%>%ggplot(aes(time, UKgrid_no_trend)) +
+    geom_line()
+
+```
+
+**Periodograma**
+
+```{r periodograma1}
+spectrum(as.numeric(na.omit(UKgrid_tbl_todas$UKgrid_no_trend)),log='no')
+
+PeriodgramaUKgrid_notrend=spectrum(as.numeric(na.omit(UKgrid_tbl_todas$UKgrid_no_trend)),log='no')
+ubicacionUKgrid_notrend=which.max(PeriodgramaUKgrid_notrend$spec)
+sprintf("El valor de la frecuencia donde se máximiza el periodograma para la serie es: %s",PeriodgramaUKgrid_notrend$freq[ubicacionUKgrid_notrend])
+
+sprintf("El periodo correspondiente es aproximadamente: %s",1/PeriodgramaUKgrid_notrend$freq[ubicacionUKgrid_notrend])
+
+ordenar<-sort(PeriodgramaUKgrid_notrend$spec,index.return=TRUE,decreasing = TRUE)
+ordenar$ix[1]
+
+sprintf("El periodo correspondiente a la segunda frecuencia mas pequeña es aproximadamente: %s",1/PeriodgramaUKgrid_notrend$freq[ordenar$ix[2]])
+# 8533.33333333333 es aproximadamente 8766, el cual corresponde a 1 año
+
+sprintf("El periodo correspondiente a la quinta frecuencia mas pequeña es aproximadamente: %s",1/PeriodgramaUKgrid_notrend$freq[ordenar$ix[5]])
+##167.979002624672 la cual es aproximadamente 168 el cual corresponde a 1 semana
+```
+
+```{r creando un objeto de tipo msts}
+library(forecast)
+#na.omit(UKgrid_df$UKgrid)
+#which(is.na(UKgrid_df$UKgrid))
+UKgridmsts<-msts(UKgrid_df$UKgrid,seasonal.periods = c(24,168,8766))
+Ajustes_UKgrid_daily<-tslm(UKgridmsts~fourier(UKgridmsts,K=c(3,0,0)))
+summary(Ajustes_UKgrid_daily)
+prediction_UKgrid_daily<-predict(Ajustes_UKgrid_daily,data.frame(fourier(UKgridmsts,K=c(3,0,0))))
+
+
+points_daily<-24*7
+plot(UKgridmsts[1:points_daily], ylab="UKgrid",type="l",ylim=c(min(UKgridmsts[1:points_daily],prediction_UKgrid_daily[1:points_daily]),max(UKgridmsts[1:points_daily],prediction_UKgrid_daily[1:points_daily])))
+lines(seq(1:points_daily),prediction_UKgrid_daily[1:points_daily],col="blue")
+
+#####Semanal
+Ajustes_UKgrid_weekly<-tslm(UKgridmsts~fourier(UKgridmsts,K=c(0,3,0)))
+summary(Ajustes_UKgrid_weekly)
+prediction_UKgrid_weekly<-predict(Ajustes_UKgrid_weekly,data.frame(fourier(UKgridmsts,K=c(0,3,0))))
+
+
+
+points_weekly<-168*2
+plot(UKgridmsts[1:points_weekly], ylab="UKgrid",type="l",ylim=c(min(UKgridmsts[1:points_weekly],prediction_UKgrid_weekly[1:points_weekly]),max(UKgridmsts[1:points_weekly],prediction_UKgrid_weekly[1:points_weekly])))
+lines(seq(1:points_weekly),prediction_UKgrid_weekly[1:points_weekly],col="blue")
+
+
+#####Yearly
+Ajustes_UKgrid_yearly<-tslm(UKgridmsts~fourier(UKgridmsts,K=c(0,0,3)))
+summary(Ajustes_UKgrid_yearly)
+prediction_UKgrid_yearly<-predict(Ajustes_UKgrid_yearly,data.frame(fourier(UKgridmsts,K=c(0,0,3))))
+
+
+
+points_yearly<-8766
+plot(UKgridmsts[1:points_yearly], ylab="UKgrid",type="l",ylim=c(min(UKgridmsts[1:points_yearly],prediction_UKgrid_yearly[1:points_yearly],na.rm =TRUE),max(UKgridmsts[1:points_yearly],prediction_UKgrid_yearly[1:points_yearly],na.rm =TRUE)))
+lines(seq(1:points_yearly),prediction_UKgrid_yearly[1:points_yearly],col="blue")
+
+
+
+
+
+```
