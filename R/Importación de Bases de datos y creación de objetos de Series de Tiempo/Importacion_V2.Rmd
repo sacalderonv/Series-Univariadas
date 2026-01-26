@@ -471,7 +471,7 @@ day(time_lubridate)  # Posición de día en el mes
 ```
 
 # Series multivariadas
-Es importante verificar que el paquete SLBDD esté disponible.
+Es importante verificar que el paquete SLBDD esté disponible. Sin embargo, en el repositorio están los archivos con los datos que vamos ausar.
 
 
 En ocasiones, tendremos que analizar dos o más series de tiempo de manera simultánea, esto es lo que se conoce como una **serie de tiempo multivariada**. La mayoría de los objetos que vimos anteriormente admiten series multivariadas, a continuación mostraremos algunos ejemplos con los objetos *xts*, *tsibble* y *timeSeries*, que no lo hemos explorado.
@@ -482,15 +482,16 @@ Usaremos las siguientes librerías:
 library(tidyverse)
 library(tidyquant)
 library(TSstudio)
-library(SLBDD)
+#library(SLBDD)
 library(timetk)
 library(fable)
 ```
 
-Llamamos a los datos de temperature de la librería *SLBDD* y los guardaremos en un objeto *xts*.
+Llamamos a los datos de temperature  y los guardaremos en un objeto *xts*.
 
 ```{r Temperaturas}
-data("temperatures")
+temperatures<-readRDS("temperatures.rds")
+#data("temperatures")
 head(temperatures)
 str(temperatures)
 MultTsTemp = xts(temperatures[2:4],order.by=as.Date(ISOdate(temperatures$year,1,1)))
@@ -513,7 +514,8 @@ Ahora, usaremos los datos de los índices diarios de los 99 mercados de acciones
 
 ```{r acciones otro formato}
 library(timeSeries)
-data("Stockindexes99world")
+#data("Stockindexes99world")
+Stockindexes99world<-readRDS("Stockindexes99world.rds")
 ts_data_stocks = timeSeries(Stockindexes99world[2:100],Stockindexes99world$Date)
 str(ts_data_stocks)
 plot(ts_data_stocks,plot.type="s")
@@ -536,7 +538,8 @@ US_tsibble %>%
 Veamos otro ejemplo con los datos de venta de ropa en China.
 
 ```{r ventas ropa china}
-data("clothing")
+#data("clothing")
+clothing<-readRDS("clothing.rds")
 head(clothing)
 
 # Creamos los índices o marcas de tiempo
