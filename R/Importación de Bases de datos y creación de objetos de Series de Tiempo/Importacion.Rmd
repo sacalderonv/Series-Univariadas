@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## Creación de un objeto de Series de Tiempo y gráficas
+
 ## Serie de interés
 
 Este script se basa en el libro: Hands-on Time Series Analysis with R(2019) del autor Rami Krispin.
@@ -22,7 +23,6 @@ plot(as.ts(Intanual))
 ```
 
 ## Creando y graficando la serie de retornos para ver los cambios
-
 
 El objeto ts es un formato para series de tiempo univariadas regulares. Las caraterísticas de una serie regular son; Ciclo o periodo(unidad de tiempo regular y repetitiva que divide la serie en subconjuntos consecutivos e igualmente espaciados), Frecuencia(define la longitud o el número de unidades de un cíclo) y las marcas de tiempo(provee el tiempo en que cada observación fue obtenida y puede ser usada como índice de la serie. La diferencia($\delta$) entre los tiempos de dos observaciones consecutivas debe ser igual).
 
@@ -52,15 +52,13 @@ ts_info(sercamrelint)
 TSstudio::ts_plot(sercamrelint,title="",slider=TRUE)
 ```
 
-
 ```{r grafico interactivo}
 library(dygraphs)
 dygraph(sercamrelint,main="Gráfico de Retorno Interés Anual", ylab="Cambios relativos del tipo de interés anual")%>% dyRangeSelector()
 ```
 
-
-
 El Paquete zoo se puede usar para trabajar con series regulares e irregulares espaciadas en el tiempo. Tiene dos componentes: la estructura de los datos y el vector de índices.
+
 ```{r TSstudio}
 data(EURO_Brent)
 library(zoo)####
@@ -76,8 +74,11 @@ head(EURO_Brent)
 class(index(EURO_Brent))
 
 ```
+
 ## Creación de objetos zoo
+
 Vamos a crear objetos regular e irregularmente espaciados
+
 ```{r creacion de objetos zoo}
 data(US_indicators)
 str(US_indicators)
@@ -105,9 +106,10 @@ is.regular(Ventas_vehiculos2,strict = TRUE) ###Por contener año bisiesto no es 
 is.regular(Ventas_vehiculos2,strict = FALSE)
 ```
 
-##  Paquete xts
+## Paquete xts
 
-El paquete xts(extensible time series) es una extensión del paquete zoo y provee la clase xts y un conjunto de funciones y herramientas para pre-procesamiento, manipulación y visualización de series de tiempo. Recuerde que una clase xts es un objeto zoo con atributos adicionales. 
+El paquete xts(extensible time series) es una extensión del paquete zoo y provee la clase xts y un conjunto de funciones y herramientas para pre-procesamiento, manipulación y visualización de series de tiempo. Recuerde que una clase xts es un objeto zoo con atributos adicionales.
+
 ```{r xts}
 library(xts)
 library(readxl)
@@ -143,8 +145,6 @@ tformat(Michigan_CS) <- "%m-%d-%Y"
 head(Michigan_CS)
 ```
 
-
-
 ```{r Colcap}
 Colcap<- read_excel("Datos históricos COLCAP-3.xlsx")
 
@@ -155,13 +155,14 @@ acf(TsColCap)
 str(TsColCap)
 ```
 
-
 ## Fecha y formatos de hora
+
 El paquete base provee 2 tipos de clases de fechas y horas:
 
 Date:Es una representación simple usando el formato de fecha YYYY-m-d
 
-POSIXct/POSIXlt: También conocido como Clases DateTime  y el formato estandar es YYYY-m-d H:M:S. 
+POSIXct/POSIXlt: También conocido como Clases DateTime y el formato estandar es YYYY-m-d H:M:S.
+
 ```{r Fecha y formatos de tiempo}
 library(lubridate)
 #Formato Date
@@ -282,4 +283,3 @@ yday(time_lubridate)
 qday(time_lubridate)
 day(time_lubridate)
 ```
-
