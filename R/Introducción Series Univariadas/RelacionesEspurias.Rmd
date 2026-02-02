@@ -36,4 +36,4 @@ ajuste=lm(yt~xt)
 summary(ajuste)
 ```
 
-Podemos ver que en efecto se rechaza la hipótesis nula, por lo tanto se podría asumir que hay relación. Sin embargo también note que el $R^2$ y $R^2-adjusted$ son bajos, sugieron el porblema de la relación espuria. Esto sugiere una alternativa diferente, y la cual puede ser usar la idea de cointegración, la cula por alcances del curos no serña explicada acá.
+Podemos ver que en efecto se rechaza la hipótesis nula, por lo tanto se podría asumir que hay relación. Sin embargo también note que el $R^2$ y $R^2-adjusted$ son bajos, sugieron el problema de la relación espuria. Esto sugiere una alternativa diferente, y la cual puede ser usar la idea de cointegración, la cual por alcances del curso no será explicada acá.
