@@ -35,5 +35,9 @@ Vamos ahora a buscar la relación via regresión.
 ajuste=lm(yt~xt)
 summary(ajuste)
 ```
+```{r otro}
+ajuste1=lm(diff(yt)~diff(xt))
+summary(ajuste1)
+```
 
 Podemos ver que en efecto se rechaza la hipótesis nula, por lo tanto se podría asumir que hay relación. Sin embargo también note que el $R^2$ y $R^2-adjusted$ son bajos, sugieron el problema de la relación espuria. Esto sugiere una alternativa diferente, y la cual puede ser usar la idea de cointegración, la cual por alcances del curso no será explicada acá.

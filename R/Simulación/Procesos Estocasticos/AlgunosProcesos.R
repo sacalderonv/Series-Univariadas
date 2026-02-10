@@ -20,30 +20,6 @@ plot(y)
 acf(y)
 acf(y,plot = F)
 mean(y)
-####IC. para la media del proceso ----
-##Para el filtro lineal invariante, la media poblacional del proceso es cero.
-n=length(y)
-xbar=mean(y)
-alpha=0.05 ###Para in IC del 95%
-qnormal=qnorm(1-alpha/2,0,1)
-##Calculo de la autocovarianza
-gamma_est_h=acf(y,plot=F,type="covariance",lag.max = sqrt(n))
-raiz_n=trunc(sqrt(n))
-nu=as.numeric(2*sum((1-(seq(1:raiz_n)/n))*gamma_est_h[1:raiz_n]$acf)+gamma_est_h[0]$acf)
-
-###IC de confianza
-Lim_inf=xbar-qnormal*sqrt(nu)/sqrt(n)
-Limn_suo=xbar+qnormal*sqrt(nu)/sqrt(n)
-Lim_inf
-Limn_suo
-
-###IC como si fuera IID
-Lim_inf_IID=xbar-qnormal*sqrt(gamma_est_h[0]$acf)/sqrt(n)
-Limn_suo_IID=xbar+qnormal*sqrt(gamma_est_h[0]$acf)/sqrt(n)
-Lim_inf_IID
-Limn_suo_IID
-
-
 
 # * Caminata Aleatoria ----
 
@@ -70,3 +46,30 @@ Zt=ts(mu+R*sin(omega*t)+at)
 plot(Zt)
 acf(Zt,T-1)
 pacf(Zt)
+
+
+####IC. para la media del proceso ----
+##Para el filtro lineal invariante, la media poblacional del proceso es cero.
+n=length(y)
+xbar=mean(y)
+alpha=0.05 ###Para in IC del 95%
+qnormal=qnorm(1-alpha/2,0,1)
+##Calculo de la autocovarianza
+gamma_est_h=acf(y,plot=F,type="covariance",lag.max = sqrt(n))
+raiz_n=trunc(sqrt(n))
+nu=as.numeric(2*sum((1-(seq(1:raiz_n)/n))*gamma_est_h[1:raiz_n]$acf)+gamma_est_h[0]$acf)
+
+###IC de confianza
+Lim_inf=xbar-qnormal*sqrt(nu)/sqrt(n)
+Limn_suo=xbar+qnormal*sqrt(nu)/sqrt(n)
+Lim_inf
+Limn_suo
+
+###IC como si fuera IID
+Lim_inf_IID=xbar-qnormal*sqrt(gamma_est_h[0]$acf)/sqrt(n)
+Limn_suo_IID=xbar+qnormal*sqrt(gamma_est_h[0]$acf)/sqrt(n)
+Lim_inf_IID
+Limn_suo_IID
+
+
+

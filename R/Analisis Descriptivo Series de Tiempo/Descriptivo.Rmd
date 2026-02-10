@@ -27,7 +27,8 @@ class(USUnRate)
 plot(USUnRate,main = "US Monthly Unemployment Rate",ylab="Unemployment Rate (%)")
 ```
 
-La serie es medida mensual, es decir, presenta una frecuencia de 12. Qué
+La serie es medida mensualmente, es decir, presenta una frecuencia de
+medición 12, es decir, cada 12 periodos volvemos a ver el mismo mes. Qué
 características podemos observar? \* Tendencia? \* Estacionalidad? \*
 Cíclos? \* Varianza marginal no constante? Vamos a seleccionar un
 periodo de tiempo mas corto
