@@ -164,9 +164,9 @@ filter_2=forecast::ma(chicken,m_filter)
 filter_3=forecast::ma(chicken,m_filter,centre = T)
 ```
 
-**Tarea:** Estimar y*Eliminar la tendencia por un filtro de promedio
+**Tarea:** Estimar y *Eliminar la tendencia por un filtro de promedio
 móviles, y a la serie resultante extraerle la estacionalidad a partir de
-otro filtro de promedios móviles.(note que para este caso lo que hay que
+otro filtro de promedios móviles.(Note que para este caso lo que hay que
 hacer es agrupar por meses a través de todos los años y calcular el
 promedio.)*
 
@@ -223,6 +223,77 @@ tibble_chicken%>%mutate(Pollo_ajus=smooth_vec(Pollo,span = 0.75, degree = 2))%>%
     geom_line(aes(y = Pollo_ajus), color = "red")
 
 ```
+# Continuación estimación tendencia por suavizamiento
+
+## Promedio Móvil
+
+El promedio móvil es un método es útil para descubrir ciertos rasgos en
+una serie de tiempo, como tendencias a largo plazo y componentes
+estacionales. En particular, si $x_t$ representa las observaciones,
+entonces una forma de predecir predecir o estimar la tendencia de la
+serie es:
+
+$$m_t=\sum_{j=-k}^{k}a_jx_{t-j},$$ donde si$a_j=a_{-j}\ge0$ y
+$\sum_{j=-k}^{k}a_j=1$ se conoce como el promedio móvil simétrico de los
+datos.
+
+```{r Suavizamiento_1}
+library(astsa)
+data("soi")
+ts_info(soi)
+?soi
+# Filtro Boxcar
+wgts = c(.5, rep(1,11), .5)/12   ###Los pesos de los filtros
+soif = stats::filter(soi, sides=2, filter=wgts)
+plot(soi)
+lines(soif, lwd=2, col=4)
+
+###Forma del Filtro
+nwgts = c(rep(0,20), wgts, rep(0,20))
+plot(nwgts, type="l", ylim = c(-.02,.1), xaxt='n', yaxt='n', ann=FALSE)
+```
+
+## Suavizamiento Kernel
+
+El suavizamiento kernel es un suavizador de promedio móvil que utiliza
+una función de ponderación, o kernel, para promediar las
+observaciones.Veamos ahora como queda el promedio móvil:
+
+$$m_t=\sum_{i=1}^{n}w_i(t)x_i$$ donde
+$$w_i(t)=K(\frac{t-i}{b})/\sum_{j=1}^{n}K(\frac{t-j}{b})$$ son los pesos
+y $K(\cdot)$ es una función kernel. Este estimador es llamado el
+Estimador de Nadaraya-Watson. Usaremos la función ksmooth
+
+```{r Suavizamiento_2}
+plot(soi)
+lines(ksmooth(time(soi), soi, "normal", bandwidth=1), lwd=2, col=4)
+#par(fig = c(.65, 1, .65, 1), new = TRUE) # the insert
+gauss = function(x) { 1/sqrt(2*pi) * exp(-(x^2)/2) }
+x = seq(from = -3, to = 3, by = 0.001)
+plot(x, gauss(x), type ="l", ylim=c(-.02,.45), xaxt='n', yaxt='n', ann=FALSE)
+
+```
+
+## Lowess
+
+Otro enfoque para suavizar un gráfico de tiempo es la regresión del
+vecino más cercano. La técnica se basa en la regresión de k vecinos más
+cercanos, en la que uno usa solo los datos
+$\{x_{t−k/2}, ..., x_t, ..., x_{t+k/2}\}$ para predecir $x_t$ mediante
+regresión, y luego establece $m_t = \hat{x}_t$. Primero, una cierta
+proporción de vecinos más cercanos a $x_t$ se incluyen en un esquema de
+ponderación; los valores más cercanos a $x_t$ en el tiempo obtienen más
+peso. Luego, se utiliza una regresión ponderada robusta para predecir
+$x_t$ y obtener los valores suavizados $mt$. Cuanto mayor sea la
+fracción de vecinos más cercanos incluidos, más suave será el ajuste. El
+R se usa la función lowess.
+
+```{r Suavizamiento_3}
+plot(soi)
+lines(lowess(soi, f=.05), lwd=2, col=4)  # Ciclo El Niño 
+lines(lowess(soi), lty=2, lwd=2, col=2)  # tendencia (con span por defecto)
+```
+
 
 ## Descomposición STL
 
@@ -401,10 +472,7 @@ natural en EE. UU.(USgas) medido en Billones de pies cúbicos. Esto
 permite chequear si hay posibles relaciones no-lineales.
 
 ```{r dispersión retardos_1}
-library(astsa)
-data("soi")
-ts_info(soi)
-?soi
+
 
 par(mar = c(2,2,2,2))
 plot(soi, main="Indice soi")
@@ -1447,72 +1515,8 @@ lines(UKgrid_tbl_diff_Fourier2$TIMESTAMP[2:49],Fourier2$fitted.values[1:48],type
 
 ```
 
-# Suavizamiento en el contexto de Series de Tiempo
+# Mas sobre Suavizamiento en el contexto de Series de Tiempo
 
-## Promedio Móvil
-
-El promedio móvil es un método es útil para descubrir ciertos rasgos en
-una serie de tiempo, como tendencias a largo plazo y componentes
-estacionales. En particular, si $x_t$ representa las observaciones,
-entonces una forma de predecir predecir o estimar la tendencia de la
-serie es:
-
-$$m_t=\sum_{j=-k}^{k}a_jx_{t-j},$$ donde si$a_j=a_{-j}\ge0$ y
-$\sum_{j=-k}^{k}a_j=1$ se conoce como el promedio móvil simétrico de los
-datos.
-
-```{r Suavizamiento_1}
-# Filtro Boxcar
-wgts = c(.5, rep(1,11), .5)/12   ###Los pesos de los filtros
-soif = stats::filter(soi, sides=2, filter=wgts)
-plot(soi)
-lines(soif, lwd=2, col=4)
-
-###Forma del Filtro
-nwgts = c(rep(0,20), wgts, rep(0,20))
-plot(nwgts, type="l", ylim = c(-.02,.1), xaxt='n', yaxt='n', ann=FALSE)
-```
-
-## Suavizamiento Kernel
-
-El suavizamiento kernel es un suavizador de promedio móvil que utiliza
-una función de ponderación, o kernel, para promediar las
-observaciones.Veamos ahora como queda el promedio móvil:
-
-$$m_t=\sum_{i=1}^{n}w_i(t)x_i$$ donde
-$$w_i(t)=K(\frac{t-i}{b})/\sum_{j=1}^{n}K(\frac{t-j}{b})$$ son los pesos
-y $K(\cdot)$ es una función kernel. Este estimador es llamado el
-Estimador de Nadaraya-Watson. Usaremos la función ksmooth
-
-```{r Suavizamiento_2}
-plot(soi)
-lines(ksmooth(time(soi), soi, "normal", bandwidth=1), lwd=2, col=4)
-#par(fig = c(.65, 1, .65, 1), new = TRUE) # the insert
-gauss = function(x) { 1/sqrt(2*pi) * exp(-(x^2)/2) }
-x = seq(from = -3, to = 3, by = 0.001)
-plot(x, gauss(x), type ="l", ylim=c(-.02,.45), xaxt='n', yaxt='n', ann=FALSE)
-
-```
-
-## Lowess
-
-Otro enfoque para suavizar un gráfico de tiempo es la regresión del
-vecino más cercano. La técnica se basa en la regresión de k vecinos más
-cercanos, en la que uno usa solo los datos
-$\{x_{t−k/2}, ..., x_t, ..., x_{t+k/2}\}$ para predecir $x_t$ mediante
-regresión, y luego establece $m_t = \hat{x}_t$. Primero, una cierta
-proporción de vecinos más cercanos a $x_t$ se incluyen en un esquema de
-ponderación; los valores más cercanos a $x_t$ en el tiempo obtienen más
-peso. Luego, se utiliza una regresión ponderada robusta para predecir
-$x_t$ y obtener los valores suavizados $mt$. Cuanto mayor sea la
-fracción de vecinos más cercanos incluidos, más suave será el ajuste. El
-R se usa la función lowess.
-
-```{r Suavizamiento_3}
-plot(soi)
-lines(lowess(soi, f=.05), lwd=2, col=4)  # Ciclo El Niño 
-lines(lowess(soi), lty=2, lwd=2, col=2)  # tendencia (con span por defecto)
-```
 
 ## Suavizamiento Splines
 
