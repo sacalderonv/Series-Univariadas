@@ -145,8 +145,8 @@ plot(chicken_decompo)
 chicken_decompo$trend
 ```
 
-Simule unos datos III, crear un objeto con periodicidad s=12, y extraer
-la descomposición, qué puede observar?
+Simule unos datos, crear un objeto con periodicidad s=12, y extraer la
+descomposición, qué puede observar?
 
 ```{r simulacion descomposicion}
 y=ts(rnorm(1000,0,1),start=c(2000,01),frequency = 12)
@@ -215,14 +215,15 @@ tibble_chicken%>%timetk::plot_time_series(Fecha, Pollo,
                    .interactive = TRUE,
                    .plotly_slider = TRUE)
 ###Usa Loess para hacer el ajuste de la tendencia, es decir usar smooth_vec() como versión simplificada de stats::loess()
-tibble_chicken%>%mutate(Pollo_ajus=smooth_vec(Pollo,span = 0.35, degree = 2))
+tibble_chicken%>%mutate(Pollo_ajus=smooth_vec(Pollo,span = 0.25, degree = 2))
 
-tibble_chicken%>%mutate(Pollo_ajus=smooth_vec(Pollo,span = 0.75, degree = 2))%>%
+tibble_chicken%>%mutate(Pollo_ajus=smooth_vec(Pollo,span = 0.250, degree = 2))%>%
   ggplot(aes(Fecha, Pollo)) +
     geom_line() +
     geom_line(aes(y = Pollo_ajus), color = "red")
 
 ```
+
 # Continuación estimación tendencia por suavizamiento
 
 ## Promedio Móvil
@@ -294,7 +295,6 @@ lines(lowess(soi, f=.05), lwd=2, col=4)  # Ciclo El Niño
 lines(lowess(soi), lty=2, lwd=2, col=2)  # tendencia (con span por defecto)
 ```
 
-
 ## Descomposición STL
 
 STL son las iniciales de "Seasonal and Trend decomposition using
@@ -320,12 +320,14 @@ Note que en ambos casos se obliga a extraer un componente estacional,
 sin embargo puede que está componente en verdad no exista, por eso se
 debe verificar que en efecto hay.
 
+# Diferenciación como estrategia para eliminar la tendencia
+
 ```{r Caminata Aletoria con Drift}
 set.seed(154) 
 w = rnorm(200); x = cumsum(w) 
-wd = w +.2; xd = cumsum(wd)
+wd = w +.1; xd = cumsum(wd)
 plot.ts(xd, ylim=c(-5,55), main="Caminata Aletoria", ylab='')
-lines(x, col=4); abline(h=0, col=4, lty=2); abline(a=0, b=.2, lty=2)
+lines(x, col=4); abline(h=0, col=4, lty=2); abline(a=0, b=.1, lty=2)
 
 ```
 
@@ -379,12 +381,14 @@ $$
 data("AirPassengers")
 plot(AirPassengers)
 #####Transformación Box-Cox
-#library(FitAR)
+library(car)
 library(forecast)
 forecast::BoxCox.lambda(AirPassengers, method ="loglik", lower = -1, upper = 3) ###Me entrega el valor de lambda 
-##method="loglik"
-#FitAR::BoxCox(AirPassengers)###Me entrega una gráfica
-plot(forecast::BoxCox(AirPassengers,lambda=0.2))###
+#
+car::boxCox(AirPassengers~1)###Me entrega una gráfica
+car::powerTransform(AirPassengers~1)
+
+plot(forecast::BoxCox(AirPassengers,lambda=0.0))###
 lAirPass=log(AirPassengers)
 #x11()
 par(mar = c(1,1,1,1))
@@ -404,72 +408,43 @@ varianza fue estabilizada.
 
 ```{r R BoxCox chequeo Series transformada}
 #FitAR::BoxCox(lAirPass)
-forecast::BoxCox.lambda(lAirPass, method = "guerrero", lower = -1, upper = 2)
+forecast::BoxCox.lambda(lAirPass, method = "loglik", lower = -1, upper = 2)
+
+car::boxCox(lAirPass~1)###Me entrega una gráfica
+
 ```
 
 ```{r Rbox_Cox Yeo-Jhonson}
 library(VGAM)
-library(car)
 
+
+car::boxCox(AirPassengers~1,family = "yjPower")
+car::powerTransform(AirPassengers~1,family = "yjPower")
 
 VGAM::yeo.johnson(AirPassengers, lambda = 0)
 car::yjPower(AirPassengers,lambda=0)
 
 
 
+
 ```
 
-Ejercicio: Use la serie <i>varve</i> del paquete <b>astsa</b> para
-chequear si es necesario hacer transformación Box-Cox.
+Ejercicio: Use la serie *varve* del paquete **astsa** para chequear si
+es necesario hacer transformación Box-Cox.
 
-Vamos a correr lo mismo pero en Python para la transformación de BoxCox
-
-#\`\`\`{r configuración, include=FALSE} #library(knitr)
-#library(reticulate) ###Nos ubicamos en el ambiente dentro de la
-terminal y damos which python y copiamos la ruta
-"/opt/anaconda3/envs/Python38andR/bin/python"
-\##"/Users/macbook/opt/anaconda3/envs/Ambiente38/bin/python"
-#/Users/sergiocalderonunal/opt/anaconda3/envs/Ambiente3104/bin/python
-#use_python("/Users/macbook/opt/anaconda3/envs/Ambiente38/bin/python")
-#use_python("/Users/sergiocalderonunal/opt/anaconda3/envs/Ambiente3104/bin/python")
-#use_virtualenv("\~/Python38andR") #py_config() #pd \<- import("pandas")
-#arreglo\<-pd$array(c(1, 2, 3)) #print(arreglo) #arreglo$shape
-
-#\`\`\`
-
-#\`\`\`{python inicio} #import sys #print(sys.path) #import pandas as pd
-#import matplotlib.pylab as plt #data = pd.read_csv('AirPassengers.csv')
-#print(data) #print('\n Data Types:') #print(data.dtypes)
-#con=data['Month'] #data['Month']=pd.to_datetime(data['Month']) #data
-#pasajeros=data.set_index('Month') #check datatype of index
-
-#convert to time series: #ts = pasajeros['NPassengers'] #ts.head(10)
-
-####Graficar la Serie##### #plt.plot(ts) #plt.title('AirPassengers')
-#plt.show()
-
-#\`\`\`
-
-\#`{python inicio_1} #print(r.AirPassengers) #print(r.lAirPass) #`
-
-#\`\`\`{r uso de objeto creado en python}
-
-#py$data #library(ggplot2) #ggplot2::ggplot(data = py$data,aes(x=Month,y=NPassengers)
-\#)+geom_line()
-
-#\`\`\`
-
-## Gráficas de Retardos
+## Gráficas de Retardos Para Series Estacionarias o al menos sin tendencia
 
 Vamos a hacer gráficos de dispersión para chequear que tipos de
 relaciones hay entre los retardos de la variable interés. Vamos a
-trabajar con algunas series, por ejemplo: \* Indice ambiental mensual
-(soi)(Southern Oscillation Index), el cual mide los cambios en la
+trabajar con algunas series, por ejemplo: **Indice ambiental mensual
+(soi)(Southern Oscillation Index)**, el cual mide los cambios en la
 presión del aire, relacionados con las temperaturas de la superficie del
-mar en el Océano Pacífico central. \* la serie rec (reclutamiento
-asociada al soi), número de nuevos peces. \* Consumo mensual de gas
-natural en EE. UU.(USgas) medido en Billones de pies cúbicos. Esto
-permite chequear si hay posibles relaciones no-lineales.
+mar en el Océano Pacífico central. **la serie rec (reclutamiento
+asociada al soi)**, número de nuevos peces.
+
+También chequearemos la serie consumo mensual de gas natural en EE.
+UU.(USgas) medido en Billones de pies cúbicos. Esto permite chequear si
+hay posibles relaciones no-lineales.
 
 ```{r dispersión retardos_1}
 
@@ -477,7 +452,7 @@ permite chequear si hay posibles relaciones no-lineales.
 par(mar = c(2,2,2,2))
 plot(soi, main="Indice soi")
 par(mar = c(3,2,3,2))
-astsa::lag1.plot(soi, 12,corr=F)  ###El 12 indica cuantos retardos y_t-k contra y_t 
+astsa::lag1.plot(soi, 1,corr=F)  ###El 12 indica cuantos retardos y_t-k contra y_t 
 ###Hacer la gráfica con x11()
 
 
@@ -494,10 +469,10 @@ demás parecen ser no significativas o no lineales.
 ```{r dispersion retardos_2}
 #pdf('/Users/sergiocalderon/Documents/Documentos - iMac de Sergio/Documentos iMac Sergio/Notas de Clase/Notas de clase/Notas de Clase Series de Tiempo Univariadas/Graficas/DispersionSoiRec.pdf',paper="USr")
 par(mar = c(3,2,3,2))
-lag2.plot(soi, rec, 8)   #El 2 de lag2.plot es porque intervenienen dos serie de tiempo.
+lag2.plot(soi, rec, 1)   #El 2 de lag2.plot es porque intervenienen dos serie de tiempo.
 
 #dev.off()
-lag2.plot(soi, rec, 8,corr=F)
+lag2.plot(soi, rec, 1,corr=F)
 ```
 
 Note también que el gráfico de dispersión del índice de nuevos peces con
@@ -530,10 +505,28 @@ acf(rec, 48, main="Recruitment")
 #dev.off()
 ```
 
+# Correlación Cruzada
+
+La correlación cruzada permite medir la dependencia lineal temporal
+entre dos series de tiempo.
+
 ```{r ccf}
-ccf(rec, soi, 48, main="SOI vs Recruitment", ylab="CCF")
-#Corr(rec_{t},soi_{t-h})
-#Corr(soi_{t},rec_{t-h},)
+ccf(soi,rec, 48, main="SOI vs Recruitment", ylab="CCF")
+#Corr(X_t,Y_{y+k}) ###Mirar los lags positivos
+##Para Corr(X_{t-k},Y_{t}) mirar los lags negativos
+###Podemos intercambiar la series de orden y mirar los lags positivos
+ccf(rec,soi, 48, main="SOI vs Recruitment", ylab="CCF")
+
+```
+
+Sin embargo se debe pre-blanquear als dos series para eliminar el efecto
+de las dos series de tiempo
+
+```{r ccf prewhite}
+library(TSA) # Librería recomendada para prewhiten
+
+# 1. Pre-blanqueo y CCF en un solo paso
+TSA::prewhiten(soi, rec, main="Correlación Cruzada Pre-blanqueada")
 ```
 
 ```{r timetk acf, pacf, ccf}
@@ -614,9 +607,37 @@ par(mar = c(3,2,3,2))
 astsa::lag1.plot(astsa::Lynx, 12) 
 tseriesChaos::mutual(astsa::Lynx, partitions = 50, lag.max = 10, plot=TRUE)
 
+
 ```
 
-## Detección de cíclos y estacionalidades
+La autocorrelación de distancia también permite detectar relaciones no
+lineales
+
+```{r dacf}
+library(energy)
+calcular_dacf_interna <- function(serie, max_lag = 20) {
+  sapply(1:max_lag, function(k) {
+    n_k <- length(serie)
+    # Recorte directo para alineación perfecta t vs t-k
+    x_t <- serie[(k + 1):n_k]
+    x_tk <- serie[1:(n_k - k)]
+    return(dcor(x_t, x_tk))
+  })
+}
+
+# 3. Comparación visual
+lags <- 1:24
+d_acf_vals <- calcular_dacf_interna(xtsimul, max_lag = 24)
+
+
+
+abline(h = c(0.06, -0.06), lty = 2, col = "blue") # Líneas de significancia aprox.
+
+plot(lags, d_acf_vals, type = "h", main = "dACF (Distancia - Total)", col = "darkgreen", ylim = c(0, 1))
+
+```
+
+# Detección de cíclos y estacionalidades
 
 Podemos usar la función *TSstudio::ts_heatmap* para crear un mapa de
 calor. Este es un gráfico tridimensional, en donde en el eje y están los
@@ -725,6 +746,12 @@ require(timetk)
 require(feasts)
 require(tsibble)
 require(plotly)
+
+library(dplyr)
+library(fable)
+library(feasts)
+library(ggplot2)
+
 UKgrid_xts <- extract_grid(type = "xts",
                               columns = "ND",
                               aggregate = "hourly",
@@ -1326,6 +1353,265 @@ para detectar la estacionalidad tanto para serie diferenciada, como para
 la serie cuando se estima la tendencia y luego se elimina(Use fitro de
 promedios móviles o STL).
 
+**Como estimar la componente estacional?**
+
+```{r estimar componete estacional1}
+uk_tsbl <- extract_grid(type = "tsibble", 
+                        columns = "ND", 
+                        aggregate = "hourly")
+
+
+
+uk_clean <- uk_tsbl %>%
+  mutate(TIMESTAMP = as_datetime(TIMESTAMP)) %>%
+  fill_gaps() # Importante para que Fourier no falle por huecos temporales
+
+```
+
+Ahora definimos los tres ciclos: el diario (24), el semanal
+(168**=24x7**) y el anual (**8766=365.25x24**). Usaremos `K` (número de
+armónicos) para controlar qué tan "curvada" es la estimación.
+
+```{r estimar componete estacional1}
+fit <- uk_clean %>%
+  model(
+    fourier_model = TSLM(ND ~ fourier(period = "day", K = 10) + 
+                             fourier(period = "week", K = 5) + 
+                             fourier(period = "year", K = 3))
+  )
+
+augment(fit) %>%
+    filter(TIMESTAMP >= max(TIMESTAMP) - days(14)) %>%
+    ggplot(aes(x = TIMESTAMP)) +
+    geom_line(aes(y = ND, colour = "Demanda Real"), alpha = 0.3) +
+    geom_line(aes(y = .fitted, colour = "Modelo Fourier"), size = 1) +
+    scale_color_manual(values = c("Demanda Real" = "black", "Modelo Fourier" = "red")) +
+    labs(title = "Componentes Estacionales de la Demanda (Reino Unido)",
+         subtitle = "Ajuste mediante series de Fourier (Diario, Semanal y Anual)",
+         y = "Megawatts", x = "Fecha/Hora") +
+    theme_minimal()
+```
+
+```{r Componentes por separado}
+library(patchwork)
+
+# Extraer y limpiar datos
+uk_data <- extract_grid(type = "tsibble", columns = "ND", aggregate = "hourly") %>% 
+  fill_gaps()
+
+# 1. Modelo solo para el DÍA (24h)
+fit_day <- uk_data %>% model(m = TSLM(ND ~ fourier(period = "day", K = 10)))
+
+# 2. Modelo solo para la SEMANA (168h)
+fit_week <- uk_data %>% model(m = TSLM(ND ~ fourier(period = "week", K = 8)))
+
+# 3. Modelo solo para el AÑO (8766h)
+fit_year <- uk_data %>% model(m = TSLM(ND ~ fourier(period = "year", K = 5)))
+
+comp_estacionales <- uk_data %>%
+  mutate(
+    Real = ND,
+    Componente_Dia = fitted(fit_day)$.fitted,
+    Componente_Semana = fitted(fit_week)$.fitted,
+    Componente_Año = fitted(fit_year)$.fitted
+  )
+```
+
+```{r grafico}
+# Gráfico A: Componente Diaria (Zoom a 2 días)
+p1 <- comp_estacionales %>%
+  filter(TIMESTAMP >= max(TIMESTAMP) - days(2)) %>%
+  ggplot(aes(x = TIMESTAMP)) +
+  geom_line(aes(y = Real), color = "gray80", size = 0.5) +
+  geom_line(aes(y = Componente_Dia), color = "firebrick", size = 1) +
+  labs(title = "Componente Diaria (Fourier 24h)", y = "MW") +
+  theme_minimal()
+
+# Gráfico B: Componente Semanal (Zoom a 2 semanas)
+p2 <- comp_estacionales %>%
+  filter(TIMESTAMP >= max(TIMESTAMP) - weeks(2)) %>%
+  ggplot(aes(x = TIMESTAMP)) +
+  geom_line(aes(y = Real), color = "gray80", size = 0.5) +
+  geom_line(aes(y = Componente_Semana), color = "royalblue", size = 1) +
+  labs(title = "Componente Semanal (Fourier 168h)", y = "MW") +
+  theme_minimal()
+
+# Gráfico C: Componente Anual (Todo el histórico o 1 año)
+p3 <- comp_estacionales %>%
+  filter(TIMESTAMP >= max(TIMESTAMP) - years(1)) %>%
+  ggplot(aes(x = TIMESTAMP)) +
+  geom_line(aes(y = Real), color = "gray80", size = 0.5) +
+  geom_line(aes(y = Componente_Año), color = "forestgreen", size = 1) +
+  labs(title = "Componente Anual (Fourier 8766h)", y = "MW") +
+  theme_minimal()
+
+# Mostrar los tres gráficos
+p1 / p2 / p3
+```
+
+# Usando modelos GAM
+
+Ajuste de cada componente via splines.
+
+```{r GAM 1}
+library(mgcv)
+library(lubridate)
+
+uk_data <- extract_grid(type = "tsibble", columns = "ND", aggregate = "hourly") %>%
+  mutate(
+    hora = hour(TIMESTAMP),
+    dia_sem = wday(TIMESTAMP),
+    dia_año = yday(TIMESTAMP)
+  )
+
+uk_clean <- uk_data %>%
+  filter(!is.na(ND), !is.na(hora), !is.na(dia_sem), !is.na(dia_año))
+
+# 2. Re-ajustar el modelo con el dataset limpio
+fit_gam <- gam(ND ~ s(hora, bs = "cc", k = 12) + 
+                    s(dia_sem, bs = "cc", k = 7) + 
+                    s(dia_año, bs = "cc", k = 20), 
+               data = uk_clean)
+
+preds <- predict(fit_gam, type = "terms")
+intercepto <- as.numeric(coef(fit_gam)[1])
+```
+
+```{r GAM 2}
+uk_results <- uk_clean %>%
+  mutate(
+    Efecto_Hora = preds[, "s(hora)"],
+    Efecto_Semana = preds[, "s(dia_sem)"],
+    Efecto_Año = preds[, "s(dia_año)"],
+    Tendencia_Global = attr(preds, "constant")
+  )
+
+
+# Visualizar la suma de componentes vs Real (últimas 2 semanas)
+uk_results %>%
+  filter(TIMESTAMP >= max(TIMESTAMP) - days(14)) %>%
+  mutate(Prediccion_Total = Efecto_Hora + Efecto_Semana + Efecto_Año + Tendencia_Global) %>%
+  ggplot(aes(x = TIMESTAMP)) +
+  geom_line(aes(y = ND, color = "Real"), alpha = 0.4) +
+  geom_line(aes(y = Prediccion_Total, color = "Suma de Componentes (GAM)"), size = 1) +
+  labs(title = "Reconstrucción de la Demanda usando GAM",
+       subtitle = "Suma de efectos: Hora + Día + Año + Media",
+       y = "Megawatts") +
+  scale_color_manual(values = c("Real" = "grey", "Suma de Componentes (GAM)" = "red")) +
+  theme_minimal()
+```
+
+```{r GAM 3}
+
+uk_results1 <- uk_clean %>%
+  bind_cols(as.data.frame(preds)) %>%
+  rename(Comp_Hora = `s(hora)`, 
+         Comp_Semana = `s(dia_sem)`, 
+         Comp_Año = `s(dia_año)`) %>%
+  mutate(
+    Tendencia_Global = intercepto,
+    # Escalamos cada componente sumándole la media para que se solape con la serie real
+    Componente_Dia = Comp_Hora + Tendencia_Global,
+    Componente_Semana = Comp_Semana + Tendencia_Global,
+    Componente_Año = Comp_Año + Tendencia_Global
+  )
+
+
+# Gráfico A: Componente Diaria (Zoom a 2 días)
+p1 <- uk_results1 %>%
+    filter(TIMESTAMP >= max(TIMESTAMP) - days(2)) %>%
+    ggplot(aes(x = TIMESTAMP)) +
+    geom_line(aes(y = ND), color = "gray80", size = 0.5) +
+    geom_line(aes(y = Componente_Dia), color = "firebrick", size = 1) +
+    labs(title = "Componente Diaria (GAM Spline)", y = "MW") +
+    theme_minimal()
+
+# Gráfico B: Componente Semanal (Zoom a 2 semanas)
+p2 <- uk_results1 %>%
+    filter(TIMESTAMP >= max(TIMESTAMP) - weeks(2)) %>%
+    ggplot(aes(x = TIMESTAMP)) +
+    geom_line(aes(y = ND), color = "gray80", size = 0.5) +
+    geom_line(aes(y = Componente_Semana), color = "royalblue", size = 1) +
+    labs(title = "Componente Semanal (GAM Spline)", y = "MW") +
+    theme_minimal()
+
+# Gráfico C: Componente Anual (1 año)
+p3 <- uk_results1 %>%
+    filter(TIMESTAMP >= max(TIMESTAMP) - years(1)) %>%
+    ggplot(aes(x = TIMESTAMP)) +
+    geom_line(aes(y = ND), color = "gray80", size = 0.5) +
+    geom_line(aes(y = Componente_Año), color = "forestgreen", size = 1) +
+    labs(title = "Componente Anual (GAM Spline)", y = "MW") +
+    theme_minimal()
+
+p1 / p2 / p3
+
+```
+
+Que pasa si modelamos el mes pero que no sea tan suave?
+
+```{r mes no suave}
+# 1. Aseguramos que 'mes' sea un factor en el dataset
+uk_clean <- uk_clean %>%
+  mutate(mes = month(TIMESTAMP, label = TRUE))
+
+# 2. Ajustamos el modelo (Mes como efecto fijo/factor)
+fit_gam_mes <- gam(ND ~ s(hora, bs = "cc", k = 12) + 
+                        s(dia_sem, bs = "cc", k = 7) + 
+                        mes, 
+                   data = uk_clean)
+
+# 3. Extraemos los términos y el intercepto
+preds_mes <- as.data.frame(predict(fit_gam_mes, type = "terms"))
+intercepto <- as.numeric(coef(fit_gam_mes)[1])
+
+# 4. Unimos usando nombres limpios
+# predict() devuelve una columna llamada 'mes'. La renombramos a 'Efecto_Mes'
+uk_mes_results <- uk_clean %>%
+  bind_cols(preds_mes %>% rename(Efecto_Mes = mes)) %>%
+  mutate(Componente_Mes = Efecto_Mes + intercepto)
+
+# 1. Aseguramos que 'mes' sea un factor en el dataset
+uk_clean <- uk_clean %>%
+  mutate(mes = month(TIMESTAMP, label = TRUE))
+
+# 2. Ajustamos el modelo (Mes como efecto fijo/factor)
+fit_gam_mes <- gam(ND ~ s(hora, bs = "cc", k = 12) + 
+                        s(dia_sem, bs = "cc", k = 7) + 
+                        mes, 
+                   data = uk_clean)
+
+# 3. Extraemos los términos y el intercepto
+preds_mes <- as.data.frame(predict(fit_gam_mes, type = "terms"))
+intercepto <- as.numeric(coef(fit_gam_mes)[1])
+
+# 4. Unimos usando nombres limpios
+# predict() devuelve una columna llamada 'mes'. La renombramos a 'Efecto_Mes'
+uk_mes_results <- uk_clean %>%
+  bind_cols(preds_mes %>% rename(Efecto_Mes = mes)) %>%
+  mutate(Componente_Mes = Efecto_Mes + intercepto)
+```
+
+```{r}
+# Filtramos dos horas consecutivas para ver el "puente"
+intervalo_3_4 <- uk_results %>%
+  filter(hora %in% c(15, 16))
+
+ggplot(intervalo_3_4, aes(x = hora, y = ND)) +
+  # 1. La nube de puntos real (miles de días superpuestos)
+  geom_jitter(alpha = 0.05, color = "royalblue", width = 0.1) +
+  
+  # 2. La línea del GAM (El Spline que conecta los knots)
+  # Usamos stat_summary para ver el promedio real vs la curva suave
+  stat_summary(fun = mean, geom = "line", aes(group = 1), color = "red", size = 1.5) +
+  stat_summary(fun = mean, geom = "point", color = "red", size = 3) +
+  
+  labs(title = "Intervalo Crítico: 15:00 a 16:00",
+       subtitle = "El modelo estima la curva roja basándose en la masa de puntos azules de miles de días",
+       x = "Hora (Knots potenciales)", y = "Demanda (MW)") +
+  theme_minimal()
+```
+
 ```{r exploración estacionalidad ggplot2_1 }
  library(ggplot2)
     ggplot(USgas_df, aes(x = USgas)) +
@@ -1516,7 +1802,6 @@ lines(UKgrid_tbl_diff_Fourier2$TIMESTAMP[2:49],Fourier2$fitted.values[1:48],type
 ```
 
 # Mas sobre Suavizamiento en el contexto de Series de Tiempo
-
 
 ## Suavizamiento Splines
 

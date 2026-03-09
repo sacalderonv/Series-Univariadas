@@ -23,13 +23,14 @@ mean(y)
 
 # * Caminata Aleatoria ----
 
-T=1000
+T=10000
 sigma=10
 x=rnorm(T,0,sigma)
 St=ts(cumsum(x))
 plot(St)
 par(mfrow=c(2,1))
 acf(St,lag.max = T-1)
+acf(St)
 pacf(St,lag.max=T-1)
 
 #* Proceso cíclico ----
@@ -45,6 +46,7 @@ t=seq(1:T)
 Zt=ts(mu+R*sin(omega*t)+at)
 plot(Zt)
 acf(Zt,T-1)
+acf(Zt)
 pacf(Zt)
 
 
