@@ -452,7 +452,7 @@ hay posibles relaciones no-lineales.
 par(mar = c(2,2,2,2))
 plot(soi, main="Indice soi")
 par(mar = c(3,2,3,2))
-astsa::lag1.plot(soi, 1,corr=F)  ###El 12 indica cuantos retardos y_t-k contra y_t 
+astsa::lag1.plot(soi, 12,corr=F)  ###El 12 indica cuantos retardos y_t-k contra y_t 
 ###Hacer la gráfica con x11()
 
 
@@ -472,7 +472,7 @@ par(mar = c(3,2,3,2))
 lag2.plot(soi, rec, 1)   #El 2 de lag2.plot es porque intervenienen dos serie de tiempo.
 
 #dev.off()
-lag2.plot(soi, rec, 1,corr=F)
+lag2.plot(soi, rec, 13,corr=F)
 ```
 
 Note también que el gráfico de dispersión del índice de nuevos peces con
@@ -498,9 +498,9 @@ autocorrelación para el índice soi y la serie de nuevos peces.
 
 ```{r acf1}
 
-par(mfrow=c(2,1))
-par(mar = c(2.7,2,2.7,2))
-acf(soi, 48, main="Southern Oscillation Index")
+#par(mfrow=c(2,1))
+#par(mar = c(2.7,2,2.7,2))
+#acf(soi, 48, main="Southern Oscillation Index")
 acf(rec, 48, main="Recruitment")
 #dev.off()
 ```
@@ -629,11 +629,11 @@ calcular_dacf_interna <- function(serie, max_lag = 20) {
 lags <- 1:24
 d_acf_vals <- calcular_dacf_interna(xtsimul, max_lag = 24)
 
-
+plot(lags, d_acf_vals, type = "h", main = "dACF (Distancia - Total)", col = "darkgreen", ylim = c(0, 1))
 
 abline(h = c(0.06, -0.06), lty = 2, col = "blue") # Líneas de significancia aprox.
 
-plot(lags, d_acf_vals, type = "h", main = "dACF (Distancia - Total)", col = "darkgreen", ylim = c(0, 1))
+
 
 ```
 
@@ -720,6 +720,22 @@ USgas_summary
   ####También lo podemos hacer usando el paquete feasts y el objeto tsibble
   USgas_tsbl=as_tsibble(USgas)
   ###Puede usar el argumento period=12 y da el mismo resultado, lo que significa es que se pueden agrupar las observaciones que están cada 12.
+```
+
+```{r biwavelet}
+series_wavelets<-cbind(seq(1:length(USgas_df$USgas)),USgas_df$USgas)
+
+wt<-biwavelet::wt(series_wavelets)
+
+par(mfrow = c(1,2))
+plot(wt, type = "power.corr.norm", main = "Bias-corrected wavelet power",plot.cb=TRUE)
+plot(wt, type = "power.norm", main = "Biased wavelet power",plot.cb=TRUE)
+par(mar=c(1,1,1,1))
+
+####
+par(oma=c(0, 0, 0, 1), mar=c(5, 4, 4, 5) + 0.1)
+plot(wt, type = "power.corr.norm", main = "Bias-corrected wavelet power",plot.cb=TRUE)
+
 ```
 
 Note que basados en las estadísticas descriptivas podemos ver que las
