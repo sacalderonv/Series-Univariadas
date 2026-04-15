@@ -53,6 +53,7 @@ forecast::BoxCox.lambda(AirPassengers, method = "guerrero", lower = 0, upper = 2
 #air.arima<-arima(AirPassengers, c(0,1,1), seasonal=list(order=c(0,1,1), period=12))
 #FitAR::BoxCox(air.arima)
 lAirPass=log(AirPassengers)
+par(mar=c(2,2,2,2))
 par(mfrow=c(2,1))
 plot(AirPassengers)
 plot(lAirPass)
@@ -66,19 +67,50 @@ plot(lAirPass)
 fltr <- c(1/2, rep(1, times = 11), 1/2)/12   ##q=6
 fltr
 ## estimate of trend
-lAirPass.trend <- stats::filter(lAirPass, filter = fltr, method = "convo", sides = 2)
+lAirPass.trend <- stats::filter(lAirPass, filter = fltr, method = "convo", sides = 1)
 ## plot the trend
 #x11()
+par(mar=c(2,2,2,2))
 par(mfrow=c(2,1))
 plot(lAirPass)
 plot.ts(lAirPass.trend, ylab = "Trend", cex = 1)
 
+
+lAirPass.1T <- lAirPass - lAirPass.trend
+```
+
+```{r Analisis de la serie sin tendencia}
+library(tibble)
+monthplot(lAirPass.1T)
+spectrum(na.omit(lAirPass.1T),log='no')
+library(astsa)
+Airpass.per = astsa::mvspec(na.omit(lAirPass.1T), log="no")
+Airpass.per = astsa::mvspec(na.omit(lAirPass.1T), log="no")
+library(biwavelet)
+na.omit(lAirPass.1T)
+
+lAirPass_wavelets<-cbind(seq(1:length(na.omit(lAirPass.1T))),as.numeric(na.omit(lAirPass.1T)))
+
+
+wt<-biwavelet::wt(lAirPass_wavelets)
+
+par(mfrow = c(1,2))
+plot(wt, type = "power.corr.norm", main = "Bias-corrected wavelet power",plot.cb=TRUE)
+
+require(timetk)
+library(lubridate)
+library(ggplot2)
+lAirPass_tsibble=as_tsibble(na.omit(lAirPass.1T))
+
+lAirPass_tsibble%>%mutate(month=factor(lubridate::month(index),levels=1:12,label=month.abb))%>%
+  ggplot(aes(x=month,y=value))+
+  geom_boxplot()
 ```
 
 # Efecto estacional a través del tiempo
 
 ```{r PM Estacional}
-lAirPass.1T <- lAirPass - lAirPass.trend
+
 
 ## plot the monthly seasonal effects
 plot.ts(lAirPass.1T, ylab = "Seasonal effect", xlab = "Month", cex = 1)
@@ -143,7 +175,7 @@ Sciences) Estela Bee Dagum, Silvia Bianconcini
 ```{r X11}
 library(seasonal)
 library(ggplot2)
-library(fpp)
+library(fpp2)
 
 AirPassengers %>% seas(x11="") -> fit  #%>% Operador Pipe
 autoplot(fit) + ggtitle("X11 decomposition of Aipassengers")
@@ -166,7 +198,7 @@ autoplot(elecequip, series="Data") +
 ```{r STL}
 library(dplyr)
 library(fpp3)
-library(fpp)
+library(fpp2)
 library(fable)
 library(feasts)
 data(elecequip)
@@ -587,7 +619,7 @@ HWAP_train=stats::HoltWinters(train,seasonal="additive")
 HWAP_train$alpha
 HWAP_train$beta
 HWAP_train$gamma
-###Observación: Note que que esos son las estimaciones de los parámetros de suavizamiento. Se puede también hacer una grilla de valores para explorar si hay unos valores mejores.
+###Observación: Note que esos son las estimaciones de los parámetros de suavizamiento. Se puede también hacer una grilla de valores para explorar si hay unos valores mejores.
 # por ejemplo como sigue:
 require(utils)
 suav_inputs=cbind(seq(0.001,0.999,0.1),seq(0.001,0.999,0.1),seq(0.001,0.999,0.1))
@@ -599,7 +631,8 @@ for(i in 1:(ntest))
 {
   x=window(lAirPass,end=time(lAirPass)[ntrain]+(i-1)/12)
   print(length(x))
-  refit=stats::HoltWinters(x,seasonal="additive",alpha=HWAP_train$alpha,beta=HWAP_train$beta,gamma=HWAP_train$gamma)
+  #refit=stats::HoltWinters(x,seasonal="additive",alpha=HWAP_train$alpha,beta=HWAP_train$beta,gamma=HWAP_train$gamma)
+  refit=stats::HoltWinters(x,seasonal="additive",alpha=grilla_suav[1,1],beta=grilla_suav[1,2],gamma=grilla_suav[1,3])
     fchstepahe[i,]=as.numeric(forecast::forecast(refit,h=h)$mean)
 }
 fchstepahe

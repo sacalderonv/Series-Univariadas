@@ -989,14 +989,34 @@ UKgrid_tbl%>%mutate(diff_ND=ND-dplyr::lag(ND))%>%plot_seasonal_diagnostics(.date
 ```
 
 ```{r subseries}
+library(ggtime)
+UKgrid_tstbl%>%ggtime::gg_subseries(ND,period=24)
 
-UKgrid_tstbl%>%gg_subseries(ND,period=24)
-
-UKgrid_tstbl%>%gg_season(ND,period=24)
+#UKgrid_tstbl%>%ggtime::gg_subseries(ND,period=24)
 
 UKgrid_tstbl%>%gg_season(ND,period=24*7)
 
 
+
+```
+
+```{r Wavelet UKGrid,warning=FALSE, message=FALSE,results='hide'}
+which(is.na(UKgrid_tstbl), arr.ind = TRUE)
+
+series_wavelets_uk<-cbind(seq(1:length(UKgrid_tstbl$ND)),na.approx(UKgrid_tstbl$ND))
+
+
+
+wt<-biwavelet::wt(series_wavelets_uk)
+
+#par(mfrow = c(1,2))
+#plot(wt, type = "power.corr.norm", main = "Bias-corrected wavelet power",plot.cb=TRUE)
+#plot(wt, type = "power.norm", main = "Biased wavelet power",plot.cb=TRUE)
+#par(mar=c(1,1,1,1))
+
+####
+par(oma=c(0, 0, 0, 1), mar=c(5, 4, 4, 5) + 0.1)
+plot(wt, type = "power.corr.norm", main = "Bias-corrected wavelet power",plot.cb=TRUE)
 
 ```
 
@@ -1391,9 +1411,9 @@ armónicos) para controlar qué tan "curvada" es la estimación.
 ```{r estimar componete estacional1}
 fit <- uk_clean %>%
   model(
-    fourier_model = TSLM(ND ~ fourier(period = "day", K = 10) + 
-                             fourier(period = "week", K = 5) + 
-                             fourier(period = "year", K = 3))
+    fourier_model = TSLM(log(ND) ~ trend()+fourier(period = "day", K = 10) + 
+                             fourier(period = "week", K = 10) + 
+                             fourier(period = "year", K = 10))
   )
 
 augment(fit) %>%
