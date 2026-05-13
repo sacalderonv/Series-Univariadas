@@ -46,8 +46,73 @@ acf(MA1)
 Tlength=200
 arimaej=arima.sim(list(order = c(1,0,1),ar = c(0.7),ma=c(0.6)), n = Tlength)
 plot(arimaej,main='ARMA(1,1)')
-acf(arimaej)
+acf(arimaej,main='ACF muestral')
+
+acf_ARMA<- ARMAacf(ar=c(0.8),ma=c(0.6), lag.max = 10)
+lags <- 0:10 
+plot(lags,acf_ARMA,xlim=c(1,10),ylab = "ACF",type="h",main = "ACF Teórica
+     para ARMA(1,1)")
+abline(h=0) #Agrega un eje al gráfico
 ```
+```{r Comparar teóricas y muestrales}
+Tlength = 200
+
+# Simular ARMA(1,1)
+arimaej = arima.sim(
+  list(order = c(1,0,1),
+       ar = 0.7,
+       ma = 0.6),
+  n = Tlength
+)
+
+# ACF muestral
+acf_muestral = acf(arimaej, plot = FALSE)
+
+# ACF teórica
+acf_teorica = ARMAacf(ar = 0.7,
+                      ma = 0.6,
+                      lag.max = 10)
+
+# Rezagos
+lags = 0:10
+
+# Gráfico base: ACF muestral
+plot(lags,
+     acf_muestral$acf[1:11],
+     type = "h",
+     lwd = 2,
+     col = "black",
+     ylim = c(min(acf_teorica,
+                  acf_muestral$acf[1:11]),
+              1),
+     xlab = "Rezago",
+     ylab = "ACF",
+     main = "ACF muestral vs teórica")
+
+# ACF teórica en rojo punteado
+lines(lags,
+      acf_teorica,
+      col = "red",
+      lty = 2,
+      lwd = 2)
+
+# Puntos sobre la línea teórica
+points(lags,
+       acf_teorica,
+       col = "red",
+       pch = 19)
+
+abline(h = 0)
+
+legend("topright",
+       legend = c("Muestral", "Teórica"),
+       col = c("black", "red"),
+       lty = c(1,2),
+       lwd = 2,
+       pch = c(NA,19))
+```
+
+
 
 ```{r ACFTeorica}
 acf_ARMA<- ARMAacf(ar=c(0.0),ma=c(0.8,-0.6), lag.max = 10)
