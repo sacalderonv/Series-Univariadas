@@ -46,21 +46,21 @@ acf(MA1)
 Tlength=200
 arimaej=arima.sim(list(order = c(1,0,1),ar = c(0.7),ma=c(0.6)), n = Tlength)
 plot(arimaej,main='ARMA(1,1)')
-acf(arimaej,main='ACF muestral')
+acf(arimaej,main='ACF muestral',lag.max = 10)
 
-acf_ARMA<- ARMAacf(ar=c(0.8),ma=c(0.6), lag.max = 10)
+acf_ARMA<- ARMAacf(ar=c(0.7),ma=c(0.6), lag.max = 10)
 lags <- 0:10 
 plot(lags,acf_ARMA,xlim=c(1,10),ylab = "ACF",type="h",main = "ACF Teórica
      para ARMA(1,1)")
 abline(h=0) #Agrega un eje al gráfico
 ```
 ```{r Comparar teóricas y muestrales}
-Tlength = 200
+Tlength = 1000
 
 # Simular ARMA(1,1)
 arimaej = arima.sim(
   list(order = c(1,0,1),
-       ar = 0.7,
+       ar = 0.8,
        ma = 0.6),
   n = Tlength
 )
@@ -69,7 +69,7 @@ arimaej = arima.sim(
 acf_muestral = acf(arimaej, plot = FALSE)
 
 # ACF teórica
-acf_teorica = ARMAacf(ar = 0.7,
+acf_teorica = ARMAacf(ar = 0.8,
                       ma = 0.6,
                       lag.max = 10)
 
