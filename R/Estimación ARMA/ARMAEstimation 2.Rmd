@@ -65,6 +65,47 @@ modelo.automatico1=auto.arima(y,d=0,D=0,max.p=1,max.q=4,start.p=0, start.q=0,sea
 modelo.automatico1
 coeftest(modelo.automatico1)
 ```
+# Datos reales
+Sunpots o manchas solares son regiones temporales mas ocuras que aparecn en la superficie del sol, las cuales están asociadas con campos magnéticos extremadamente intensos que inhiben parcialmente ek transporte de cslorndesdemel interior de sol hacia la superficie. Durante un máximo periodo solar aparecen muchas manchas.
+```{r sunspots}
+library(readxl)
+YearSN <- read_excel("YearSN.xlsx", 
+                     col_types = c("text", "numeric", "numeric", 
+                                   "numeric"))
+
+dates_Sn<- as.Date(paste0(1700:2024, "-01-01"))
+sunspots.df<-data.frame(dates_Sn,YearSN)
+ts.sunspots<-ts(sunspots.df$Year_mean_total_sunspots,start=c(1700))
+plot(ts.sunspots)
+plot(log(ts.sunspots))
+acf(ts.sunspots)
+acf(ts.sunspots,ci.type="ma",ci=0.95)
+pacf(ts.sunspots)
+modelo.ss1=forecast::Arima(ts.sunspots,order=c(3,0,0),include.mean = TRUE) ###AR(1)
+modelo.ss1
+lmtest::coeftest(modelo.ss1)
+phis<-coef(modelo.ss1)[c("ar1","ar2","ar3")]
+polyroot(c(1,-phis))
+Mod(polyroot(c(1,-phis)))
+```
+
+```{r recruitment}
+library(astsa)
+data(rec)
+plot(rec)
+acf(rec)
+acf(rec,ci.type="ma",ci=0.99)
+pacf(rec,ci=0.99)
+
+modelo.rec1=forecast::Arima(rec,order=c(2,0,0),include.mean = TRUE) ###AR(1)
+modelo.rec1
+lmtest::coeftest(modelo.rec1)
+phis<-coef(modelo.rec1)[c("ar1","ar2")]
+polyroot(c(1,-phis))
+Mod(polyroot(c(1,-phis)))
+```
+
+
 
 ```{r importacion}
 
