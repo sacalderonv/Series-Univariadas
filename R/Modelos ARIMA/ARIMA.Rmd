@@ -66,6 +66,9 @@ aTSA::adf.test(arimaej,nlag = 11)
 tseries::adf.test(drift,k = 10)   ####Note que esta función no trabaja bien, favor no usar
 fUnitRoots::adfTest(drift,lags = 10,type='c')
 aTSA::adf.test(drift,nlag = 11)
+#fUnitRoots::urkpssTest(drift,type = "tau",doplot = FALSE)##Estacionariedad en niveles. La nula es I(0) 
+kpss.drfit<-urca::ur.kpss(drift,type = "tau") # type="mu" indica que el proceso bajo Ho es estacionario alrededor de una nivel fijo(ro), mientras que "tau" es estacionario alrededor de una tendencia determinística. lags tiene 3 formas de establecerse "nil" implica l=0 y no usa retardos de la covarianza, "long" usa mas retardos de la covarianza, mientras "short" usa menos.
+kpss.drfit@cval
 ###Otro Ejemplo
 
 estacionario=arima.sim(list(order = c(1,0,1), ar = 0.7,ma=0.6), n = Tlength)
@@ -219,7 +222,7 @@ lines(LQI,type="S",col="red")
 
 
 #####Fase de Pronósticos
-pronosticos12=forecast::forecast(AjusteArima12,h=12,level=0.95)
+pronosticos12=forecast::forecast(AjusteArima12,h=12,level=0.95,biasadj=TRUE)
 plot(pronosticos12)
 ```
 
