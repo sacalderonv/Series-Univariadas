@@ -78,8 +78,8 @@ plot(trend.estacionario)
 fUnitRoots::adfTest(trend.estacionario)
 fUnitRoots::adfTest(trend.estacionario,lags=1,type='ct')   ###Cambie 11 rezago hasta 
 aTSA::adf.test(trend.estacionario,nlag = 2)
-
-
+kpss.trend<-urca::ur.kpss(trend.estacionario,type = "mu",lags = "short") #
+kpss.trend@cval
 ```
 
 ```{r Raiz Unitaria}
@@ -132,7 +132,9 @@ ar(logAirP) ##Selecciona un modelo AR usando el crierio de Akaike  a la serie Aa
 aTSA::adf.test(logAirP,nlag = 14)
 summary(ur.df(logAirP,type="none",lags = 13))
 summary(ur.df(logAirP,type="drift",lags = 13))
-
+kpss.air<-urca::ur.kpss(logAirP,type = "mu",lags = "short") #
+kpss.air@cval
+kpss.air
 ######SE debe chequear si hay que diferenciar de nuevo!!!
 dlogAirPass=diff(logAirP)
 plot(dlogAirPass)
@@ -140,8 +142,12 @@ plot(dlogAirPass)
 pacf(dlogAirPass)
 acf(dlogAirPass,lag.max = 48)
 ar(dlogAirPass)
-aTSA::adf.test(dlogAirPass,nlag = 15)
+aTSA::adf.test(dlogAirPass,nlag = 16)
 summary(ur.df(dlogAirPass,type="none",lags = 14))
+
+kpss.air_diff<-urca::ur.kpss(dlogAirPass,type = "mu",lags = "short") #
+kpss.air_diff@cval
+kpss.air_diff
 monthplot(dlogAirPass)
 spectrum(dlogAirPass)
 
@@ -150,6 +156,7 @@ spectrum(dlogAirPass)
 ## Identificación del Modelo Usando ACF y PACF
 
 ```{r pasajeros35}
+plot(dlogAirPass)
 ####Identificación de los Órdenes Autoregresivos
 acf(dlogAirPass,lag.max = 60,ci.type='ma')  ###Se requiere un MA de orden muy grande
 pacf(dlogAirPass,lag.max = 60)  ####Puede ser un autoregresivo de orden 12
@@ -164,9 +171,9 @@ modelo.automatico1=auto.arima(dlogAirPass,d=0,D=0,max.p=12,max.q=48,start.p=0, s
 #####Ajuste del Modelo
 ####Note que entramos la serie original
 library(TSA)
-AjusteArima93=forecast::Arima(AirPassengers,order = c(9,1,3),lambda = 0,include.drift = TRUE)
-summary(AjusteArima93)
-coeftest(AjusteArima93)
+AjusteArima12=forecast::Arima(AirPassengers,order = c(12,1,0),lambda = 0,include.drift = TRUE)
+summary(AjusteArima12)
+coeftest(AjusteArima12)
 #####Refinando el modelo
 AjusteArima12=forecast::Arima(AirPassengers,order = c(12,1,0),lambda = 0,include.drift = TRUE)
 #,fixed=c(NA,NA,0,NA,NA,NA,NA,NA,NA,NA,0,NA,NA)
@@ -228,13 +235,15 @@ plot(pronosticos12)
 
 
 
-```{r ajuste de la estacionalidad con componentes Fourier y Dummy}
+```{r ajuste de la estacionalidad con componentes Fourier, Dummy y SARIMA}
 
 library(tidyverse)
 library(tsibble)
 library(fable)
 library(fabletools)
 library(TSA)
+
+
 tsibble_Airpass=as_tsibble(AirPassengers)
 ###Variables Dummy
 forecast::seasonaldummy(AirPassengers)
@@ -256,7 +265,7 @@ real_ajustado<-tsibble_Airpass%>%left_join(fitted(ajuste_final,by=index))%>%sele
 
 
 ajuste_final %>%
-  fabletools::forecast(h = "12 months") %>%
+    forecast::forecast(h = "12months",biasadj=TRUE) %>%
   autoplot( level = 95) +
   geom_line(data=real_ajustado,aes(y=value,colour="real"))+
   geom_line(data=real_ajustado,aes(y=.fitted,colour="ajustado"))+
@@ -285,7 +294,8 @@ ajuste_final_models<-tsibble_Airpass%>%model(
   `FourierK=2`=ARIMA(log(value)~1+fourier(K=2)+pdq(12,1,0)+PDQ(0,0,0)),
   `FourierK=3`=ARIMA(log(value)~1+fourier(K=3)+pdq(12,1,0)+PDQ(0,0,0)),
   `Dummy`=ARIMA(log(value)~1+season()+pdq(12,1,0)+PDQ(0,0,0)),
-  `ARIMA`=ARIMA(log(value)~1+pdq(12,1,12)+PDQ(0,0,0)))
+  `ARIMA`=ARIMA(log(value)~1+pdq(12,1,12)+PDQ(0,0,0)),
+`SARIMA`=ARIMA(log(value)~1+pdq(1,1,0)+PDQ(1,1,0)))
 
 glance(ajuste_final_models)
 
@@ -296,7 +306,7 @@ ajuste_final_models %>%
      select(Dummy)%>%coef()
 
 ajuste_final_models %>%
-  fabletools::forecast(h = "2 years") %>%
+  forecast::forecast(h = "2years",biasadj=TRUE) %>%
   autoplot(tsibble_Airpass, level = 95) +
   facet_wrap(vars(.model), ncol = 2) +
   guides(colour = "none", fill = "none", level = "none") +

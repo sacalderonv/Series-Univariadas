@@ -121,6 +121,18 @@ library(timetk)
 library(tidyverse)
 library(tsibble)
 library(lmtest)
+library(nlme)
+###La opción simplificada es
+m_ar1 <- gls(tsc3 ~ -1 + tsc1, correlation = corAR1())
+summary(m_ar1)
+
+m_ma1 <- gls(tsc3 ~ -1 + tsc1, correlation = corARMA(q = 1))
+#m_ma1 <- gls(tsc3 ~ tsc1, correlation = corARMA(q = 1))
+#m_ma1 <- gls(tsc3 ~ -1 + tsc1, correlation = corARMA(q = 1),control = glsControl(opt = "optim"))
+# m_ma1 <- gls(tsc3 ~ -1 + tsc1, correlation = corARMA(q = 1),control = glsControl(msMaxIter = 1000, msTol = 1e-4))
+summary(m_ma1)
+
+
 indice_semanal=as.Date(seq.Date(from = as.Date("1962-01-12"), # Starting date
                            length.out=2466,
                            by = "week") )
@@ -129,6 +141,7 @@ tstibble_semanal_cambios=as_tsibble(df_semanal_cambios) ##Detecta automáticamen
 tstibble_unificado_cambios=tstibble_semanal_cambios%>%pivot_longer(c(Cambio1y,Cambio3y),names_to="Serie",values_to = "Cambios")
 tstibble_unificado_cambios%>%group_by(Serie)%>%timetk::plot_time_series(Fechas ,Cambios,.interactive  = FALSE)
 summary(m2)
+
 plot(m2$residuals,type='l')
 acf(m2$residuals,lag.max =48,ci.type="ma")
 pacf(m2$residuals,lag.max =48)
@@ -139,6 +152,8 @@ corr = nlme::corARMA(value=c(0.18),p = 0, q = 1)
 salida_concorrelacion=nlme::gls(Cambio3y ~-1+ Cambio1y,tstibble_semanal_cambios,correlation = corr)
 salida_concorrelacion
 coeftest(salida_concorrelacion)
+
+
 ```
 
-Note que este resultado es análogo al obtenido al hacer la regresión con errores ARMA de la función Arima.
+Note que este resultado es análogo al obtenido al hacer la regresión con errores ARMA de la función Arima. Compare los resultados con el de la salida de lm.

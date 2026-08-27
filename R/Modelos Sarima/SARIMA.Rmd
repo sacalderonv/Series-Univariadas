@@ -179,14 +179,14 @@ acf(DdlAirpassengers)
 acf(DdlAirpassengers,lag.max = 48, ci.type='ma')# q=0,1, Q=0,1
 pacf(DdlAirpassengers,lag.max = 48) # p=0,1,2,...,9, P=0,1
 #En resumen podríamos proponer max q=3, Q=1, p=9, P=1
-#SARIMA(p=0,d=1,q=1)x(P=0,D=1,Q=1)s=12 con drfit?
+#SARIMA(p=0,d=1,q=3)x(P=0,D=1,Q=1)s=12 con drfit?
 ```
 
 ## Ajuste del Modelo y Análisis de Residuales
 
 ```{r Ajustes y Residuales}
 ##Ajuste del modelo
-###Arima Estacional o SARIMA(p=0,d=1,q=1)x(P=0,D=1,Q=1)s=12 con transformación logaritmica
+###Arima Estacional o SARIMA(p=0,d=1,q=3)x(P=0,D=1,Q=1)s=12 con transformación logaritmica
 
 #Modelo MA(1) estacional
 modelo = Arima(AirPassengers, c(0, 1, 1),seasonal = list(order = c(0, 1, 1), period = 12),lambda = 0)
@@ -221,7 +221,7 @@ LS=Af*sqrt(N)+2*Af*c(1:length(res))/sqrt(N)
 LI=-LS
 LQS=co+(1:length(res))/N
 LQI=-co+(1:length(res))/N
-x11()
+#x11()
 par(mfrow=c(2,1))
 plot(cum,type="l",ylim=c(min(LI),max(LS)),xlab="t",ylab="",main="CUSUM")
 lines(LS,type="S",col="red")
@@ -239,14 +239,14 @@ lines(LQI,type="S",col="red")
 
 ```{r Pronostico}
 #x11()
-Pronosticos=forecast::forecast(modelo,h=12,level=0.95)
+Pronosticos=forecast::forecast(modelo,h=12,level=0.95,biasadj=TRUE)
 plot(Pronosticos)
 predic<-predict(modelo,n.ahead=12)
 plot(predic$pred)
 
 
 #####Comparación de pronósticos####
-library(fpp)
+
 train <- window(AirPassengers,start=c(1949,01),end=c(1959,12))
 test <- window(AirPassengers,start=c(1960,01),end=c(1960,12))
 fitmodelo <- Arima(AirPassengers, c(0, 1, 1),seasonal = list(order = c(0, 1, 1), period = 12),lambda = 0)
@@ -275,10 +275,10 @@ ecm
 library(tidyverse)
 library(tidyquant)
 library(TSstudio)
-library(SLBDD)
 library(timetk)
 library(fable)
 library(feasts)
+
 AirPassengers_tsb=as_tsibble(AirPassengers)
 Ajuste_tsibble_Pass<- AirPassengers_tsb %>%
   model(
@@ -298,23 +298,24 @@ glance(Ajuste_tsibble_Pass)
 #  features(.innov, ljung_box, lag = 10, dof = 3)
 
 Ajuste_tsibble_Pass %>%
-  fabletools::forecast(h=12) %>%
+  forecast::forecast(h=12,biasadj=TRUE) %>%
   autoplot(AirPassengers_tsb)
 
 Ajuste_tsibble_Pass %>%
-  fabletools::forecast(h=12) %>%
+  forecast::forecast(h=12,biasadj=TRUE) %>%
   filter(.model=='sarima011011_Pass') %>%
   autoplot(AirPassengers_tsb)
 
 Ajuste_tsibble_Pass %>%
-  fabletools::forecast(h=12) %>%
+  forecast::forecast(h=12,biasadj=TRUE) %>%
   filter(.model=='dummy_Pass') %>%
   autoplot(AirPassengers_tsb)
 
 Ajuste_tsibble_Pass %>%
-  fabletools::forecast(h=12) %>%
+  forecast::forecast(h=12,biasadj=TRUE) %>%
   filter(.model=='fourier_Pass') %>%
   autoplot(AirPassengers_tsb)
+
 
 ```
 
