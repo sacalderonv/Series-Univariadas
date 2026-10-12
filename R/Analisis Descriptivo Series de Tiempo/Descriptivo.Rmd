@@ -217,7 +217,7 @@ tibble_chicken%>%timetk::plot_time_series(Fecha, Pollo,
 ###Usa Loess para hacer el ajuste de la tendencia, es decir usar smooth_vec() como versión simplificada de stats::loess()
 tibble_chicken%>%mutate(Pollo_ajus=smooth_vec(Pollo,span = 0.25, degree = 2))
 
-tibble_chicken%>%mutate(Pollo_ajus=smooth_vec(Pollo,span = 0.250, degree = 2))%>%
+tibble_chicken%>%mutate(Pollo_ajus=smooth_vec(Pollo,span = 0.25, degree = 1))%>%
   ggplot(aes(Fecha, Pollo)) +
     geom_line() +
     geom_line(aes(y = Pollo_ajus), color = "red")
@@ -267,11 +267,15 @@ Estimador de Nadaraya-Watson. Usaremos la función ksmooth
 
 ```{r Suavizamiento_2}
 plot(soi)
-lines(ksmooth(time(soi), soi, "normal", bandwidth=1), lwd=2, col=4)
+lines(ksmooth(time(soi), soi, "normal", bandwidth=5), lwd=2, col=4)
 #par(fig = c(.65, 1, .65, 1), new = TRUE) # the insert
 gauss = function(x) { 1/sqrt(2*pi) * exp(-(x^2)/2) }
 x = seq(from = -3, to = 3, by = 0.001)
 plot(x, gauss(x), type ="l", ylim=c(-.02,.45), xaxt='n', yaxt='n', ann=FALSE)
+
+####
+plot(chicken)
+lines(ksmooth(time(chicken),chicken,"normal",bandwidth=0.5), lwd=2, col=4)
 
 ```
 
@@ -285,7 +289,7 @@ regresión, y luego establece $m_t = \hat{x}_t$. Primero, una cierta
 proporción de vecinos más cercanos a $x_t$ se incluyen en un esquema de
 ponderación; los valores más cercanos a $x_t$ en el tiempo obtienen más
 peso. Luego, se utiliza una regresión ponderada robusta para predecir
-$x_t$ y obtener los valores suavizados $mt$. Cuanto mayor sea la
+$x_t$ y obtener los valores suavizados $m_t$. Cuanto mayor sea la
 fracción de vecinos más cercanos incluidos, más suave será el ajuste. El
 R se usa la función lowess.
 
@@ -308,8 +312,7 @@ tsibble_chicken<-as_tsibble(chicken)
 str(tsibble_chicken)
 tsibble_chicken %>%
   model(
-    STL(value ~ trend() +
-                   season(window = "periodic"),
+    STL(value ~ trend() ,
     robust = TRUE)) %>%
   components() %>%
   autoplot()
@@ -370,12 +373,10 @@ En este caso, se siguiere hacer una transformación de potencia para
 estabilizar la varianza. Esta familia de transformaciones se llaman
 transformaciones Box-Cox.
 
-$$
-    f_{\lambda}(u_{t})= \begin{cases}
+$$    f_{\lambda}(u_{t})= \begin{cases}
         \lambda^{-1}(u^{\lambda}_{t}-1), &  \text{si  $u_{t} \geq 0$, para $\lambda>0$,}\\
         \ln(u_{t}), &\text{ si $u_{t}>0$, para $\lambda=0$}.
-    \end{cases}
-$$
+    \end{cases}$$
 
 ```{r BoxCox}
 data("AirPassengers")
@@ -388,15 +389,16 @@ forecast::BoxCox.lambda(AirPassengers, method ="loglik", lower = -1, upper = 3) 
 car::boxCox(AirPassengers~1)###Me entrega una gráfica
 car::powerTransform(AirPassengers~1)
 
-plot(forecast::BoxCox(AirPassengers,lambda=0.0))###
+plot(forecast::BoxCox(AirPassengers,lambda=-0.294731))###
 lAirPass=log(AirPassengers)
+lAirPass=forecast::BoxCox(AirPassengers,lambda=0)
 #x11()
 par(mar = c(1,1,1,1))
 par(mfrow=c(2,1))
 plot(AirPassengers,main="Serie de Pasajeros sin Transformar")
 plot(lAirPass,main="Series con Transformación BoxCox")
 
-forecast::BoxCox.lambda(lAirPass, method ="guerrero", lower = -1, upper = 3)
+forecast::BoxCox.lambda(lAirPass, method ="loglik", lower = -1, upper = 3)
 
 
 ##Box-Cox con timetk
@@ -408,9 +410,14 @@ varianza fue estabilizada.
 
 ```{r R BoxCox chequeo Series transformada}
 #FitAR::BoxCox(lAirPass)
-forecast::BoxCox.lambda(lAirPass, method = "loglik", lower = -1, upper = 2)
+forecast::BoxCox.lambda(lAirPass, method = "guerrero", lower = -1, upper = 2)
 
 car::boxCox(lAirPass~1)###Me entrega una gráfica
+
+par(mar = c(1,1,1,1))
+par(mfrow=c(2,1))
+plot(AirPassengers,main="Serie de Pasajeros sin Transformar")
+plot(lAirPass,main="Series con Transformación BoxCox")
 
 ```
 
@@ -500,7 +507,8 @@ autocorrelación para el índice soi y la serie de nuevos peces.
 
 #par(mfrow=c(2,1))
 #par(mar = c(2.7,2,2.7,2))
-#acf(soi, 48, main="Southern Oscillation Index")
+acf(soi, 48, main="Southern Oscillation Index")
+astsa::lag1.plot(rec, 12,corr=F)
 acf(rec, 48, main="Recruitment")
 #dev.off()
 ```
@@ -511,6 +519,7 @@ La correlación cruzada permite medir la dependencia lineal temporal
 entre dos series de tiempo.
 
 ```{r ccf}
+lag2.plot(soi, rec, 13,corr=F)
 ccf(soi,rec, 48, main="SOI vs Recruitment", ylab="CCF")
 #Corr(X_t,Y_{y+k}) ###Mirar los lags positivos
 ##Para Corr(X_{t-k},Y_{t}) mirar los lags negativos
@@ -519,7 +528,7 @@ ccf(rec,soi, 48, main="SOI vs Recruitment", ylab="CCF")
 
 ```
 
-Sin embargo se debe pre-blanquear als dos series para eliminar el efecto
+Sin embargo se debe pre-blanquear las dos series para eliminar el efecto
 de las dos series de tiempo
 
 ```{r ccf prewhite}
@@ -596,7 +605,7 @@ astsa::lag1.plot(xtsimul, 12,corr = F)
 nonlinearTseries::mutualInformation(xtsimul,lag.max = 100,n.partitions = 50,units = "Bits",do.plot = TRUE) #c("Nats", "Bits", "Bans")
 pacf(xtsimul)
 
-tseriesChaos::mutual(xtsimul, partitions = 50, lag.max = 100, plot=TRUE)
+tseriesChaos::mutual(xtsimul, partitions = sqrt(length(xtsimul)), lag.max = 100, plot=TRUE)
 
 ```
 
@@ -649,6 +658,7 @@ un típico comportamiento de la presencia de un cíclo estacional en la
 serie. El flujo de color es horizontal.
 
 ```{r consumo gas}
+library(TSstudio)
 TSstudio::USgas
  ts_plot(USgas,
            title = "US Monthly Natural Gas consumption",
@@ -675,13 +685,13 @@ Ygrid = TRUE)
 ts_info(unemployment)
 ```
 
--   El primer ciclo ocurrió entre 1990 y 2000, que estuvo cerca de un
-    ciclo de 11 años.
--   El segundo ciclo comenzó en 2000 y finalizó en 2007, que fue un
-    ciclo de 7 años.
--   Un tercer ciclo, que comenzó en 2007 y continúa a mayo de 2019 aún
-    no se ha completado, lo que significa que se ha prolongado durante
-    más de 12 años.
+- El primer ciclo ocurrió entre 1990 y 2000, que estuvo cerca de un
+  ciclo de 11 años.
+- El segundo ciclo comenzó en 2000 y finalizó en 2007, que fue un ciclo
+  de 7 años.
+- Un tercer ciclo, que comenzó en 2007 y continúa a mayo de 2019 aún no
+  se ha completado, lo que significa que se ha prolongado durante más de
+  12 años.
 
 ```{r ciclos2}
 ts_heatmap(unemployment,title = "Mapa de Calor - Tasa de Desempleo EEUU Subserie")
@@ -715,7 +725,50 @@ USgas_summary
   plot_ly (data = USgas_summary, x = ~ month, y = ~ mean, type = "bar", name   = "Mean") %>%
    layout (title = "USgas - Monthly Average", yaxis =list(title = "Mean",   range = c(1500, 2700)))
   
-  monthplot(USgas)
+```
+
+```{r}
+library(plotly)
+
+plot_ly(data = USgas_df, x = ~month, y = ~USgas,
+        color = ~factor(year), type = "scatter", mode = "lines") %>%
+  layout(title = "Perfil estacional de USgas por año",
+         xaxis = list(title = "Mes"),yaxis = list(title = "USgas"))
+```
+
+
+```{r}
+USgas_df <- data.frame(year  = floor(time(USgas)),
+                       month = cycle(USgas),
+                       USgas = as.numeric(USgas))
+
+# Etiquetas de los meses
+USgas_df$month <- factor(month.abb[USgas_df$month], levels = month.abb)
+
+ggplot(USgas_df, aes(x = month, y = USgas,
+                     group = factor(year), color = factor(year))) +
+  geom_line(linewidth = 0.8) +
+  labs(title = "Perfil estacional de USgas por año",
+       x = "Mes", y = "Consumo de gas (billones de pies cúbicos)",
+       color = "Año") +theme_minimal()
+```
+
+
+```{r}
+ggplot(USgas_df, aes(x = month, y = USgas, group = year, color = year)) +
+  geom_line() +
+  scale_color_viridis_c() +
+  labs(title = "Perfil estacional de USgas por año",
+       x = "Mes", y = "USgas", color = "Año") +
+  theme_minimal()
+```
+
+
+```{r}
+USgas_tsbl%>%ggtime::gg_subseries(value,period=12)
+```
+
+```{monthplot(USgas)}
   
   ####También lo podemos hacer usando el paquete feasts y el objeto tsibble
   USgas_tsbl=as_tsibble(USgas)
@@ -723,6 +776,9 @@ USgas_summary
 ```
 
 ```{r biwavelet}
+#| fig-width: 10
+#| fig-height: 8
+#| warning: false
 series_wavelets<-cbind(seq(1:length(USgas_df$USgas)),USgas_df$USgas)
 
 wt<-biwavelet::wt(series_wavelets)
@@ -811,17 +867,17 @@ estacionales. Potencialmente, como se mencionó anteriormente, la demanda
 horaria de electricidad podría tener tres patrones estacionales
 diferentes:
 
--   Horaria: Este es probablemente el principal patrón estacional de la
-    serie, ya que existe una relación directa entre la demanda de
-    energía eléctrica y la hora del día (hay alta demanda durante el día
-    y baja demanda durante la noche o al contrario).
--   Día de la semana: La demanda de electricidad a lo largo del día se
-    deriva, potencialmente, del día de la semana. Tendría sentido
-    esperar un alto consumo durante los días laborables y una menor tasa
-    de consumo durante el fin de semana.
--   Mensual: como los patrones climáticos varían a lo largo del año, la
-    cantidad de luz del día y otros factores estacionales podrían
-    afectar la demanda de electricidad.
+- Horaria: Este es probablemente el principal patrón estacional de la
+  serie, ya que existe una relación directa entre la demanda de energía
+  eléctrica y la hora del día (hay alta demanda durante el día y baja
+  demanda durante la noche o al contrario).
+- Día de la semana: La demanda de electricidad a lo largo del día se
+  deriva, potencialmente, del día de la semana. Tendría sentido esperar
+  un alto consumo durante los días laborables y una menor tasa de
+  consumo durante el fin de semana.
+- Mensual: como los patrones climáticos varían a lo largo del año, la
+  cantidad de luz del día y otros factores estacionales podrían afectar
+  la demanda de electricidad.
 
 Usando el paquete **lubridate** crearemos las características.
 
@@ -837,6 +893,7 @@ del año.
 
 ```{r creando patrones}
 library(lubridate)
+head(UKgrid_df)
 UKgrid_df$hour <- hour(UKgrid_df$time)
 UKgrid_df$weekday <- wday(UKgrid_df$time, label = TRUE, abbr = TRUE)
 UKgrid_df$month <- factor(month.abb[month(UKgrid_df$time)], levels =   month.abb)
@@ -880,23 +937,23 @@ require(plotly)
 
 Qué podemos destacar del gráfico y de las estadísticas descriptivas?
 
--   Hay poca demanda durante la noche (entre la medianoche y las 6 a.m.)
-    y una alta demanda entre las horas de la mañana y la tarde.
+- Hay poca demanda durante la noche (entre la medianoche y las 6 a.m.) y
+  una alta demanda entre las horas de la mañana y la tarde.
 
--   Existe una fuerte correlación entre la demanda promedio y su
-    desviación estándar.
+- Existe una fuerte correlación entre la demanda promedio y su
+  desviación estándar.
 
--   La relativamente baja desviación estándar de la demanda promedio
-    durante la noche podría indicar que existe un fuerte efecto
-    subestacional durante esas horas además de la estacionalidad
-    horaria. Esto debería tener sentido, ya que son horas de sueño
-    normales y, por lo tanto, en promedio, la demanda es razonablemente
-    la misma durante los días de semana.
+- La relativamente baja desviación estándar de la demanda promedio
+  durante la noche podría indicar que existe un fuerte efecto
+  subestacional durante esas horas además de la estacionalidad horaria.
+  Esto debería tener sentido, ya que son horas de sueño normales y, por
+  lo tanto, en promedio, la demanda es razonablemente la misma durante
+  los días de semana.
 
--   Por otro lado, la alta desviación estándar a lo largo de las horas
-    de alta demanda podría indicar que la demanda se distribuye de
-    manera diferente en diferentes vistas de periodicidad (como día de
-    la semana o mes del año).
+- Por otro lado, la alta desviación estándar a lo largo de las horas de
+  alta demanda podría indicar que la demanda se distribuye de manera
+  diferente en diferentes vistas de periodicidad (como día de la semana
+  o mes del año).
 
 Vamos a explorar el último punto, viendo la demanda a la madrugada(3
 a.m) y empezando el día(9 a.m) con respecto al día de la semana.
@@ -992,7 +1049,7 @@ UKgrid_tbl%>%mutate(diff_ND=ND-dplyr::lag(ND))%>%plot_seasonal_diagnostics(.date
 library(ggtime)
 UKgrid_tstbl%>%ggtime::gg_subseries(ND,period=24)
 
-#UKgrid_tstbl%>%ggtime::gg_subseries(ND,period=24)
+
 
 UKgrid_tstbl%>%gg_season(ND,period=24*7)
 
@@ -1322,7 +1379,7 @@ astsa::mvspec(x, log="no")
 library(sarima) 
 x <- ts(sim_sarima(n=288,model=list(sar=0.8, nseasons=12, sigma2 = 1)), frequency = 12 )#SAR(1)
 plot(x)
-acf(x)
+acf(x,lag.max = 48)
 monthplot(x)
 ts_seasonal(x, type = "all")
 spectrum(x,log='no',span=5)
@@ -1411,16 +1468,16 @@ armónicos) para controlar qué tan "curvada" es la estimación.
 ```{r estimar componete estacional1}
 fit <- uk_clean %>%
   model(
-    fourier_model = TSLM(log(ND) ~ trend()+fourier(period = "day", K = 10) + 
-                             fourier(period = "week", K = 10) + 
-                             fourier(period = "year", K = 10))
+    fourier_model = TSLM(log(ND) ~ trend()+fourier(period = "day", K = 12) + 
+                             fourier(period = "week", K = 12) + 
+                             fourier(period = "year", K = 12))
   )
 
 augment(fit) %>%
-    filter(TIMESTAMP >= max(TIMESTAMP) - days(14)) %>%
+    filter(TIMESTAMP >= max(TIMESTAMP) - days(30)) %>%
     ggplot(aes(x = TIMESTAMP)) +
     geom_line(aes(y = ND, colour = "Demanda Real"), alpha = 0.3) +
-    geom_line(aes(y = .fitted, colour = "Modelo Fourier"), size = 1) +
+    geom_line(aes(y = .fitted, colour = "Modelo Fourier"), linewidth = 1) +
     scale_color_manual(values = c("Demanda Real" = "black", "Modelo Fourier" = "red")) +
     labs(title = "Componentes Estacionales de la Demanda (Reino Unido)",
          subtitle = "Ajuste mediante series de Fourier (Diario, Semanal y Anual)",
@@ -1436,13 +1493,13 @@ uk_data <- extract_grid(type = "tsibble", columns = "ND", aggregate = "hourly") 
   fill_gaps()
 
 # 1. Modelo solo para el DÍA (24h)
-fit_day <- uk_data %>% model(m = TSLM(ND ~ fourier(period = "day", K = 10)))
+fit_day <- uk_data %>% model(m = TSLM(ND ~ trend()+fourier(period = "day", K = 12)))
 
 # 2. Modelo solo para la SEMANA (168h)
-fit_week <- uk_data %>% model(m = TSLM(ND ~ fourier(period = "week", K = 8)))
+fit_week <- uk_data %>% model(m = TSLM(ND ~ trend()+fourier(period = "week", K = 23)))
 
 # 3. Modelo solo para el AÑO (8766h)
-fit_year <- uk_data %>% model(m = TSLM(ND ~ fourier(period = "year", K = 5)))
+fit_year <- uk_data %>% model(m = TSLM(ND ~ trend()+fourier(period = "year", K = 12)))
 
 comp_estacionales <- uk_data %>%
   mutate(
@@ -1566,7 +1623,7 @@ p1 <- uk_results1 %>%
 p2 <- uk_results1 %>%
     filter(TIMESTAMP >= max(TIMESTAMP) - weeks(2)) %>%
     ggplot(aes(x = TIMESTAMP)) +
-    geom_line(aes(y = ND), color = "gray80", size = 0.5) +
+    geom_line(aes(y = ND), color = "gray80", linewidth = 0.5) +
     geom_line(aes(y = Componente_Semana), color = "royalblue", size = 1) +
     labs(title = "Componente Semanal (GAM Spline)", y = "MW") +
     theme_minimal()

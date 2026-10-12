@@ -75,8 +75,8 @@ legend("topright", legend=c("tsc1", "tsc3"),
 plot(tsc1,tsc3,type='p',pch=16,sub="(b) Variables en Cambios")
 
 
-acf(tsc1)
-acf(tsc3)
+acf(tsc1^2)
+acf(tsc3^2)
 library(forecast)
 forecast::Ccf(tsc1, tsc3, lag.max = 48) 
 library(astsa)
@@ -131,7 +131,7 @@ m_ma1 <- gls(tsc3 ~ -1 + tsc1, correlation = corARMA(q = 1))
 #m_ma1 <- gls(tsc3 ~ -1 + tsc1, correlation = corARMA(q = 1),control = glsControl(opt = "optim"))
 # m_ma1 <- gls(tsc3 ~ -1 + tsc1, correlation = corARMA(q = 1),control = glsControl(msMaxIter = 1000, msTol = 1e-4))
 summary(m_ma1)
-
+summary(m_ma1)$tTable
 
 indice_semanal=as.Date(seq.Date(from = as.Date("1962-01-12"), # Starting date
                            length.out=2466,

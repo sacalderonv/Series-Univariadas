@@ -273,6 +273,7 @@ FALSE.
 
 ```{r Suavizamiento exponencial}
 library(forecast)
+library(tsibble)
 plot(lAirPass)
 tsibble_AirPass=as_tsibble(AirPassengers)
 tsibble_lAirPass=as_tsibble(lAirPass)
@@ -359,15 +360,15 @@ a computar las medidas de precisión del pronóstico. \* Nota: Se pueden
 comparar las medidas de precisión sobre el conjunto de entrenamiento y
 con las del conjunto de prueba.
 
--   Una vez escogido el modelo final(con los hiperparámetros o variables
-    regresoras finales), el que posiblemente tenga mejor capacidad
-    predictiva, debemos reajustar el modelo sobre todos los
-    datos(re-estimar los parámetros con todos los datos: los de
-    entrenamineto y de prueba)
+- Una vez escogido el modelo final(con los hiperparámetros o variables
+  regresoras finales), el que posiblemente tenga mejor capacidad
+  predictiva, debemos reajustar el modelo sobre todos los
+  datos(re-estimar los parámetros con todos los datos: los de
+  entrenamineto y de prueba)
 
--   Usar le modelo para hacer los pronósticos del futuro.
+- Usar le modelo para hacer los pronósticos del futuro.
 
--   
+- 
 
 ```{r ets modeltime preparacion}
 
@@ -562,10 +563,10 @@ Los pronósticos ex-ante son aquellos que se realizan utilizando
 pronósticos genuinos, hechos con anticipación utilizando cualquier
 información disponible en ese momento.
 
--   Las previsiones ex-post son aquellas que se realizan utilizando
-    información posterior sobre los predictores. Estos no son
-    pronósticos genuinos, pero son útiles para estudiar el
-    comportamiento de los modelos de pronóstico.
+- Las previsiones ex-post son aquellas que se realizan utilizando
+  información posterior sobre los predictores. Estos no son pronósticos
+  genuinos, pero son útiles para estudiar el comportamiento de los
+  modelos de pronóstico.
 
 El Rolling es un método que permite computar medidas de precisión de los
 pronósticos. La idea es basada en validación cruzada para series de
